@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-danger: var(--c-danger);
+  --color-star: #d9a21f;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, Roboto, sans-serif;
+}
+
+:root {
+  --c-bg: #f6f7fb;
+  --c-surface: #ffffff;
+  --c-surface-2: #eef1f7;
+  --c-ink: #1b1f2a;
+  --c-muted: #6b7385;
+  --c-line: #e3e7ef;
+  --c-accent: #2f5fd0;
+  --c-accent-soft: #e6edfc;
+  --c-danger: #d03b3b;
+  color-scheme: light;
+}
+
+.dark {
+  --c-bg: #101218;
+  --c-surface: #191c24;
+  --c-surface-2: #232733;
+  --c-ink: #e9ecf3;
+  --c-muted: #99a1b3;
+  --c-line: #2a2f3c;
+  --c-accent: #6d93f2;
+  --c-accent-soft: #1f2a45;
+  --c-danger: #f06b6b;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* iOS'ta odaklanınca yakınlaştırmayı önlemek için en az 16px */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
