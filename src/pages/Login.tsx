@@ -73,8 +73,8 @@ export default function Login() {
           {mode === 'in' ? 'Giriş yap' : 'Hesap oluştur'}
         </button>
         {msg && <p className="text-center text-sm text-muted">{msg}</p>}
-        {/* Yeni kayıtlar Supabase'de kapalı; herkese açılırsa VITE_ALLOW_SIGNUP=1 ile geri gelir */}
-        {import.meta.env.VITE_ALLOW_SIGNUP === '1' && (
+        {/* Yeni kayıtlar normalde Supabase'de kapalı; kayıt bağlantısı ?kayit adresiyle veya VITE_ALLOW_SIGNUP=1 ile görünür */}
+        {(import.meta.env.VITE_ALLOW_SIGNUP === '1' || location.search.includes('kayit')) && (
           <button
             type="button"
             onClick={() => setMode(mode === 'in' ? 'up' : 'in')}
