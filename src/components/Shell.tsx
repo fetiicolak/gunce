@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, List as ListIcon, Search, Sun } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -28,6 +28,7 @@ export default function Shell() {
   }, [navigate])
 
   useAppBadge()
+  const typing = useTyping()
 
   return (
     <div className="flex h-full">
@@ -51,7 +52,7 @@ export default function Shell() {
           <Route path="/ayarlar" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        {!isDesktop && !openId && <TabBar />}
+        {!isDesktop && !openId && !typing && <TabBar />}
       </main>
       {openId && <ItemDetail id={openId} />}
     </div>
@@ -99,6 +100,27 @@ function TabBar() {
       ))}
     </nav>
   )
+}
+
+/** Klavye açıkken (yazı alanı odaktayken) alt sekme çubuğu ve altındaki boşluk gizlenir. */
+function useTyping() {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isText = (el: EventTarget | null) =>
+      el instanceof HTMLTextAreaElement ||
+      (el instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'submit', 'date', 'time', 'datetime-local'].includes(el.type))
+    const onIn = (e: FocusEvent) => setTyping(isText(e.target))
+    // Aynı form içindeki bir düğmeye geçişte (ör. ekleme çipleri) çubuk geri gelip düzeni kaydırmasın
+    const onOut = (e: FocusEvent) =>
+      setTyping(isText(e.relatedTarget) || !!(e.relatedTarget as Element | null)?.closest?.('form'))
+    document.addEventListener('focusin', onIn)
+    document.addEventListener('focusout', onOut)
+    return () => {
+      document.removeEventListener('focusin', onIn)
+      document.removeEventListener('focusout', onOut)
+    }
+  }, [])
+  return typing
 }
 
 /** Uygulama açılınca bildirim rozetini temizler: bildirimler görülmüş sayılır. */
