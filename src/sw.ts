@@ -18,6 +18,23 @@ interface PushPayload {
   tag: string
 }
 
+type BadgeNavigator = WorkerNavigator & {
+  setAppBadge?: (n?: number) => Promise<void>
+  clearAppBadge?: () => Promise<void>
+}
+
+/** Ana ekran simgesindeki rozet = bildirim merkezinde duran Günce bildirimi sayısı */
+async function syncBadge() {
+  const nav = self.navigator as BadgeNavigator
+  try {
+    const n = (await self.registration.getNotifications()).length
+    if (n) await nav.setAppBadge?.(n)
+    else await nav.clearAppBadge?.()
+  } catch {
+    /* rozet desteklenmiyor */
+  }
+}
+
 self.addEventListener('push', (event) => {
   let data: PushPayload
   try {
@@ -32,8 +49,13 @@ self.addEventListener('push', (event) => {
       icon: 'pwa-192x192.png',
       badge: 'pwa-64x64.png',
       data: { url: data.url },
-    }),
+    }).then(syncBadge),
   )
+})
+
+// Bildirim kaydırılıp kapatılınca (tarayıcı bu olayı gönderiyorsa) rozeti güncelle
+self.addEventListener('notificationclose', (event) => {
+  event.waitUntil(syncBadge())
 })
 
 self.addEventListener('notificationclick', (event) => {
@@ -43,6 +65,7 @@ self.addEventListener('notificationclick', (event) => {
   target.hash = hash.replace(/^#/, '')
   event.waitUntil(
     (async () => {
+      await syncBadge()
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       const client = all.find((c) => c.url.startsWith(self.registration.scope))
       if (client) {

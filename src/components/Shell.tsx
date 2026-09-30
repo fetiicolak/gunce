@@ -2,8 +2,6 @@ import { useEffect } from 'react'
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, List as ListIcon, Search, Sun } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { isDone, overdue, useActiveItems, useSettings } from '../lib/selectors'
-import { useToday } from '../lib/useToday'
 import NavContent from './NavContent'
 import ItemDetail from './ItemDetail'
 import { cx, useIsDesktop } from './ui'
@@ -103,17 +101,16 @@ function TabBar() {
   )
 }
 
-/** Ana ekran simgesinde bugünün açık görev sayısını gösterir. */
+/** Uygulama açılınca bildirim rozetini temizler: bildirimler görülmüş sayılır. */
 function useAppBadge() {
-  const items = useActiveItems()
-  const today = useToday()
-  const settings = useSettings()
   useEffect(() => {
-    const n = items.filter(
-      (i) => i.kind === 'task' && !isDone(i, today) && i.due_date && (i.due_date <= today || overdue(i, settings)),
-    ).length
-    const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
-    if (n) nav.setAppBadge?.(n).catch(() => {})
-    else nav.clearAppBadge?.().catch(() => {})
-  }, [items, today, settings])
+    const clear = () => {
+      if (document.visibilityState !== 'visible') return
+      const nav = navigator as Navigator & { clearAppBadge?: () => Promise<void> }
+      nav.clearAppBadge?.().catch(() => {})
+    }
+    clear()
+    document.addEventListener('visibilitychange', clear)
+    return () => document.removeEventListener('visibilitychange', clear)
+  }, [])
 }
