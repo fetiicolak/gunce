@@ -14,7 +14,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { addDays, mondayIndex, weekday, zonedParts, type Weekday } from '@shared/schedule.ts'
+import { addDays, weekday, zonedParts, type Weekday } from '@shared/schedule.ts'
 import { defaultTime, deleteItem, toggleComplete, updateItem, useStore, uuid } from '../lib/store'
 import { isDone, overdue, useLists, useSettings } from '../lib/selectors'
 import { useOpenItem } from '../lib/nav'
@@ -331,7 +331,7 @@ function presetOf(r: Recurrence | null): Preset {
   if (r.freq === 'weekly') {
     const d = [...(r.byWeekday ?? [])].sort().join()
     if (d === '1,2,3,4,5') return 'weekdays'
-    return (r.byWeekday?.length ?? 0) <= 1 ? 'weekly' : 'custom'
+    return 'weekly'
   }
   return r.freq
 }
@@ -371,7 +371,7 @@ function RecurrenceEditor({ item }: { item: Item }) {
         <option value="none">Tekrar yok</option>
         <option value="daily">Her gün</option>
         <option value="weekdays">Hafta içi her gün</option>
-        <option value="weekly">Her hafta ({WEEKDAYS_SHORT[mondayIndex(dow)]})</option>
+        <option value="weekly">Her hafta (günleri seç)</option>
         <option value="monthly">Her ay (ayın {Number(item.due_date!.slice(8))}'i)</option>
         <option value="yearly">Her yıl</option>
         <option value="custom">Özel…</option>
@@ -401,7 +401,9 @@ function RecurrenceEditor({ item }: { item: Item }) {
               ))}
             </select>
           </div>
-          {r.freq === 'weekly' && (
+        </div>
+      )}
+      {r?.freq === 'weekly' && (
             <div className="flex flex-wrap gap-1">
               {WEEKDAYS_SHORT.map((label, i) => {
                 const wd = ((i + 1) % 7) as Weekday
@@ -415,7 +417,7 @@ function RecurrenceEditor({ item }: { item: Item }) {
                     }}
                     className={cx(
                       'h-8 w-10 rounded-md text-sm font-medium',
-                      on ? 'bg-accent text-white' : 'bg-surface text-muted',
+                      on ? 'bg-accent text-white' : 'bg-surface-2 text-muted',
                     )}
                   >
                     {label}
@@ -423,8 +425,6 @@ function RecurrenceEditor({ item }: { item: Item }) {
                 )
               })}
             </div>
-          )}
-        </div>
       )}
       {r && (
         <div className="flex items-center gap-2 text-sm text-muted">

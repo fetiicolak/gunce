@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarDays, List as ListIcon, Search, Sun } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useUi } from '../lib/ui'
 import NavContent from './NavContent'
 import ItemDetail from './ItemDetail'
 import { cx, useIsDesktop } from './ui'
@@ -29,6 +30,7 @@ export default function Shell() {
 
   useAppBadge()
   const typing = useTyping()
+  const adding = useUi((s) => s.adding)
 
   return (
     <div className="flex h-full">
@@ -52,7 +54,7 @@ export default function Shell() {
           <Route path="/ayarlar" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        {!isDesktop && !openId && !typing && <TabBar />}
+        {!isDesktop && !openId && !typing && !adding && <TabBar />}
       </main>
       {openId && <ItemDetail id={openId} />}
     </div>

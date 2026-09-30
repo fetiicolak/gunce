@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { del as idbDel, get as idbGet, set as idbSet } from 'idb-keyval'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import { nextOccurrence, zonedParts } from '@shared/schedule.ts'
+import { nextOccurrence, weekday, zonedParts } from '@shared/schedule.ts'
 import { supabase } from './supabase'
 import type { Item, List, Settings } from './types'
 
@@ -386,6 +386,11 @@ export function createItem(input: NewItem): Item {
     updated_at: now,
     deleted_at: null,
     ...input,
+  }
+  // Haftalık tekrar seçili günlere düşmüyorsa ilk tarihi seçilen ilk güne kaydır (ör. Çar → Per)
+  const rec = item.recurrence
+  if (item.due_date && rec?.freq === 'weekly' && rec.byWeekday?.length && !rec.byWeekday.includes(weekday(item.due_date))) {
+    item.due_date = nextOccurrence(item.due_date, rec) ?? item.due_date
   }
   if (item.due_date && !input.reminders) item.reminders = [{ id: uuid(), type: 'offset', minutes: 0 }]
   if (item.due_date && !item.due_time) item.due_time = defaultTime()

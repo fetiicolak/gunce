@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowUp, Bell, CalendarDays, CheckCircle2, Clock, Plus, Repeat, X } from 'lucide-react'
-import { addDays, weekday } from '@shared/schedule.ts'
+import { addDays, type Weekday } from '@shared/schedule.ts'
 import { createItem, defaultTime, todayStr, type NewItem } from '../lib/store'
-import { fmt, recurrenceLabel, relativeDay, startOfWeek } from '../lib/dates'
+import { fmt, recurrenceLabel, relativeDay, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import type { Recurrence } from '../lib/types'
+import { useUi } from '../lib/ui'
 import { cx } from './ui'
 
 type Menu = 'date' | 'repeat' | null
@@ -19,6 +20,10 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
   const [timeTouched, setTimeTouched] = useState(false)
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [open, setOpen] = useState(false)
+  useEffect(() => {
+    useUi.setState({ adding: open })
+    return () => useUi.setState({ adding: false })
+  }, [open])
   const [menu, setMenu] = useState<Menu>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -39,7 +44,14 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
     return () => document.removeEventListener('pointerdown', onDown)
   }, [open])
 
+  // Kutu açılırken yukarı doğru büyür; açan dokunuş yeni beliren bir düğmeye "tıklamış" sayılmasın
+  const openedAt = useRef(0)
+  const guard = (fn: () => void) => () => {
+    if (Date.now() - openedAt.current > 350) fn()
+  }
+
   const reset = () => {
+    setKind('task')
     setTitle('')
     setDate(defaults.due_date ?? '')
     setTime(defaultTime())
@@ -61,7 +73,9 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
       recurrence: date ? recurrence : null,
     })
     reset()
-    inputRef.current?.focus()
+    // Ekledikten sonra kutuyu kapat, klavyeyi indir; liste görünsün
+    setOpen(false)
+    inputRef.current?.blur()
   }
 
   const pickDate = (d: string) => {
@@ -69,17 +83,17 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
     setMenu(null)
   }
 
-  const repeatPresets: [string, Recurrence][] = (() => {
-    const base = date || today
-    const dow = weekday(base)
-    return [
-      ['Her gün', { freq: 'daily', interval: 1 }],
-      ['Hafta içi', { freq: 'weekly', interval: 1, byWeekday: [1, 2, 3, 4, 5] }],
-      [`Her hafta`, { freq: 'weekly', interval: 1, byWeekday: [dow] }],
-      ['Her ay', { freq: 'monthly', interval: 1 }],
-      ['Her yıl', { freq: 'yearly', interval: 1 }],
-    ]
-  })()
+  const repeatPresets: [string, Recurrence][] = [
+    ['Her gün', { freq: 'daily', interval: 1 }],
+    ['Hafta içi her gün', { freq: 'weekly', interval: 1, byWeekday: [1, 2, 3, 4, 5] }],
+    ['Her ay', { freq: 'monthly', interval: 1 }],
+    ['Her yıl', { freq: 'yearly', interval: 1 }],
+  ]
+  const weeklyDays = recurrence?.freq === 'weekly' ? (recurrence.byWeekday ?? []) : []
+  const toggleWeekday = (wd: Weekday) => {
+    const days = weeklyDays.includes(wd) ? weeklyDays.filter((d) => d !== wd) : [...weeklyDays, wd]
+    setRecurrence(days.length ? { freq: 'weekly', interval: 1, byWeekday: days } : null)
+  }
 
   return (
     <form
@@ -92,20 +106,20 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
     >
       <div className={cx('flex items-center gap-3 px-3', open ? 'pb-1 pt-2.5' : 'py-2.5')}>
         {open ? (
-          <button
-            type="button"
-            onClick={() => setKind(kind === 'task' ? 'reminder' : 'task')}
-            aria-label={kind === 'task' ? 'Görev (hatırlatmaya çevir)' : 'Hatırlatma (göreve çevir)'}
-            className="text-accent"
-          >
-            {kind === 'task' ? <CheckCircle2 className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
-          </button>
+          kind === 'task' ? (
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-accent" />
+          ) : (
+            <Bell className="h-5 w-5 shrink-0 text-accent" />
+          )
         ) : (
           <Plus className="h-5 w-5 shrink-0 text-accent" />
         )}
         <input
           ref={inputRef}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (!open) openedAt.current = Date.now()
+            setOpen(true)
+          }}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => {
@@ -123,6 +137,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
         {open && (
         <button
           type="submit"
+          onMouseDown={keepFocus}
           aria-label="Ekle"
           disabled={!title.trim()}
           className={cx(
@@ -136,13 +151,36 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
       </div>
 
       {open && (
-      <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5 pt-1.5">
-        <Chip active={kind === 'reminder'} onClick={() => setKind(kind === 'task' ? 'reminder' : 'task')}>
-          {kind === 'task' ? <CheckCircle2 className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-          {kind === 'task' ? 'Görev' : 'Hatırlatma'}
-        </Chip>
+      <>
+      {/* Tür seçimi: iki ayrı, açıkça görünen seçenek */}
+      <div className="mx-3 mt-1.5 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
+        {(
+          [
+            ['task', CheckCircle2, 'Görev'],
+            ['reminder', Bell, 'Hatırlatma'],
+          ] as const
+        ).map(([k, Icon, label]) => (
+          <button
+            key={k}
+            type="button"
+            onMouseDown={keepFocus}
+            onClick={guard(() => setKind(k))}
+            className={cx(
+              'flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors',
+              kind === k ? 'bg-accent text-white shadow-sm' : 'text-muted',
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="px-4 pt-1 text-xs text-muted">
+        {kind === 'task' ? 'Yapınca tiklenir.' : 'Tiklenmez, sadece bildirim gelir.'}
+      </p>
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto px-3 pb-2.5 pt-2">
 
-        <Chip active={!!date} onClick={() => setMenu(menu === 'date' ? null : 'date')}>
+        <Chip active={!!date} onClick={guard(() => setMenu(menu === 'date' ? null : 'date'))}>
           <CalendarDays className="h-4 w-4" />
           {date ? relativeDay(date, today) : 'Tarih'}
           {date && !defaults.due_date && (
@@ -179,13 +217,14 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
         )}
 
         {date && (
-          <Chip active={!!recurrence} onClick={() => setMenu(menu === 'repeat' ? null : 'repeat')}>
+          <Chip active={!!recurrence} onClick={guard(() => setMenu(menu === 'repeat' ? null : 'repeat'))}>
             <Repeat className="h-4 w-4" />
             {recurrence ? recurrenceLabel(recurrence) : 'Tekrar'}
             {recurrence && <ClearX onClear={() => setRecurrence(null)} />}
           </Chip>
         )}
       </div>
+      </>
       )}
 
       {menu === 'date' && (
@@ -225,11 +264,43 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
                 setRecurrence(r)
                 setMenu(null)
               }}
-              hint={label === 'Her hafta' ? recurrenceLabel(r).replace('Her hafta · ', '') : undefined}
             >
               {label}
             </MenuItem>
           ))}
+          <div className="px-4 py-3">
+            <div className="mb-2 text-[15px]">Her hafta şu günlerde</div>
+            <div className="grid grid-cols-7 gap-1">
+              {WEEKDAYS_SHORT.map((label, i) => {
+                const wd = ((i + 1) % 7) as Weekday
+                const on = weeklyDays.includes(wd)
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => toggleWeekday(wd)}
+                    className={cx(
+                      'rounded-lg py-2 text-xs font-medium transition-colors',
+                      on ? 'bg-accent text-white' : 'bg-surface-2 text-muted',
+                    )}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {/* Hep görünür: sonradan belirip menüyü kaydırmasın */}
+            <button
+              type="button"
+              onMouseDown={keepFocus}
+              onClick={() => setMenu(null)}
+              disabled={!weeklyDays.length}
+              className="mt-3 w-full rounded-lg bg-accent py-2 text-sm font-medium text-white disabled:opacity-40"
+            >
+              Tamam
+            </button>
+          </div>
         </MenuBox>
       )}
     </form>
