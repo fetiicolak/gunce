@@ -21,3 +21,16 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
   }
   document.documentElement.classList.toggle('dark', e.matches)
 })
+
+// Boş bir yere dokununca klavyeyi kapat (iOS ana ekran uygulamasında kendiliğinden kapanmıyor)
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    const active = document.activeElement as HTMLElement | null
+    if (!active || !active.matches('input, textarea, select, [contenteditable="true"]')) return
+    const target = e.target as HTMLElement
+    if (target.closest('input, textarea, select, button, a, label, [role="button"], [role="checkbox"], [contenteditable="true"]')) return
+    active.blur()
+  },
+  true,
+)

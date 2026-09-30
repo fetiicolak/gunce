@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { inputCls, Logo } from '../components/ui'
+import { isIOS } from '../lib/push'
 
 export default function Login() {
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -8,10 +9,16 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  // Aynı github.io alan adındaki başka sitelerin kayıtlı şifreleri otomatik dolmasın diye
+  // Aynı github.io alan adındaki başka sitelerin kayıtlı şifreleri otomatik dolmasın diye masaüstünde
   // alanlar dokunulana kadar salt okunur kalır (tarayıcılar salt okunur alanları doldurmaz).
-  const [unlocked, setUnlocked] = useState(false)
+  // iOS şifreleri kendiliğinden doldurmaz; orada salt okunur alan klavyenin açılmasını engellediği için kullanılmaz.
+  const [unlocked, setUnlocked] = useState(isIOS)
   const unlock = { readOnly: !unlocked, onPointerDown: () => setUnlocked(true), onFocus: () => setUnlocked(true) }
+
+  // Açılışta hiçbir alan seçili gelmesin
+  useEffect(() => {
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+  }, [])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
