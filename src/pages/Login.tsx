@@ -8,6 +8,10 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  // Aynı github.io alan adındaki başka sitelerin kayıtlı şifreleri otomatik dolmasın diye
+  // alanlar dokunulana kadar salt okunur kalır (tarayıcılar salt okunur alanları doldurmaz).
+  const [unlocked, setUnlocked] = useState(false)
+  const unlock = { readOnly: !unlocked, onPointerDown: () => setUnlocked(true), onFocus: () => setUnlocked(true) }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -16,7 +20,11 @@ export default function Login() {
     const { data, error } =
       mode === 'in'
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: location.origin + location.pathname },
+          })
     setBusy(false)
     if (error) {
       setMsg(
@@ -42,7 +50,8 @@ export default function Login() {
         </div>
         <input
           type="email"
-          autoComplete="email"
+          autoComplete="off"
+          {...unlock}
           required
           placeholder="E-posta"
           value={email}
@@ -52,6 +61,7 @@ export default function Login() {
         <input
           type="password"
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+          {...unlock}
           required
           minLength={6}
           placeholder="Şifre"
@@ -63,13 +73,16 @@ export default function Login() {
           {mode === 'in' ? 'Giriş yap' : 'Hesap oluştur'}
         </button>
         {msg && <p className="text-center text-sm text-muted">{msg}</p>}
-        <button
-          type="button"
-          onClick={() => setMode(mode === 'in' ? 'up' : 'in')}
-          className="mt-2 text-center text-sm text-accent"
-        >
-          {mode === 'in' ? 'İlk kez mi? Hesap oluştur' : 'Zaten hesabım var'}
-        </button>
+        {/* Yeni kayıtlar Supabase'de kapalı; herkese açılırsa VITE_ALLOW_SIGNUP=1 ile geri gelir */}
+        {import.meta.env.VITE_ALLOW_SIGNUP === '1' && (
+          <button
+            type="button"
+            onClick={() => setMode(mode === 'in' ? 'up' : 'in')}
+            className="mt-2 text-center text-sm text-accent"
+          >
+            {mode === 'in' ? 'İlk kez mi? Hesap oluştur' : 'Zaten hesabım var'}
+          </button>
+        )}
       </form>
     </div>
   )
