@@ -15,7 +15,7 @@ import { addDays, addMonths } from '@shared/schedule.ts'
 import DayAgenda from '../components/DayAgenda'
 import { cx, IconButton, Segmented, useIsDesktop } from '../components/ui'
 import { isDone, occurrencesByDay, overdue, useActiveItems, useSettings, type Occurrence } from '../lib/selectors'
-import { fmt, longDay, MONTHS, startOfMonth, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
+import { fmt, longDay, MONTHS, relativeDay, startOfMonth, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import { updateItem, useStore } from '../lib/store'
 import { useOpenItem } from '../lib/nav'
 import { useToday } from '../lib/useToday'
@@ -135,7 +135,12 @@ export default function CalendarPage() {
         </DndContext>
 
         <section className="px-4 pb-6 pt-4 md:px-8 lg:w-96 lg:shrink-0 lg:overflow-y-auto lg:border-l lg:border-line lg:px-4">
-          <h2 className="mb-2 px-1 font-semibold">{longDay(selected)}</h2>
+          <h2 className="mb-2 flex items-baseline gap-2 px-1">
+            <span className="text-lg font-bold text-accent">{longDay(selected)}</span>
+            {['Bugün', 'Yarın', 'Dün'].includes(relativeDay(selected, today)) && (
+              <span className="text-sm text-muted">{relativeDay(selected, today)}</span>
+            )}
+          </h2>
           <DayAgenda date={selected} compact />
         </section>
       </div>
@@ -176,14 +181,20 @@ function MonthGrid({ days, occ, selected, month, onSelect }: GridProps & { month
                 i % 7 !== 6 && 'border-r',
                 i < 35 && 'border-b',
                 d.slice(0, 7) !== month && 'bg-surface-2/50',
-                d === selected && 'bg-accent-soft/60',
+                d === selected && 'bg-accent-soft ring-2 ring-inset ring-accent',
               )}
             >
               <div className="mb-0.5 flex justify-center md:justify-start">
                 <span
                   className={cx(
                     'flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs',
-                    d === today ? 'bg-accent font-semibold text-white' : d.slice(0, 7) !== month ? 'text-muted/60' : 'text-ink',
+                    d === today
+                      ? 'bg-accent font-semibold text-white'
+                      : d === selected
+                        ? 'font-bold text-accent ring-2 ring-accent'
+                        : d.slice(0, 7) !== month
+                          ? 'text-muted/60'
+                          : 'text-ink',
                   )}
                 >
                   {Number(d.slice(8))}
@@ -212,14 +223,14 @@ function WeekColumns({ days, occ, selected, onSelect }: GridProps) {
           key={d}
           date={d}
           onSelect={onSelect}
-          className={cx('min-h-[60vh] border-line p-1.5', i < 6 && 'border-r', d === selected && 'bg-accent-soft/60')}
+          className={cx('min-h-[60vh] border-line p-1.5', i < 6 && 'border-r', d === selected && 'bg-accent-soft ring-2 ring-inset ring-accent')}
         >
           <div className="mb-2 text-center">
             <div className="text-xs text-muted">{WEEKDAYS_SHORT[i]}</div>
             <div
               className={cx(
                 'mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg',
-                d === today ? 'bg-accent font-semibold text-white' : '',
+                d === today ? 'bg-accent font-semibold text-white' : d === selected ? 'font-bold text-accent ring-2 ring-accent' : '',
               )}
             >
               {Number(d.slice(8))}
@@ -245,14 +256,14 @@ function WeekRows({ days, occ, selected, onSelect }: GridProps) {
           key={d}
           date={d}
           onSelect={onSelect}
-          className={cx('flex gap-3 border-line px-3 py-2', i < 6 && 'border-b', d === selected && 'bg-accent-soft/60')}
+          className={cx('flex gap-3 border-line px-3 py-2', i < 6 && 'border-b', d === selected && 'bg-accent-soft ring-2 ring-inset ring-accent')}
         >
           <div className="w-10 shrink-0 text-center">
             <div className="text-[11px] text-muted">{WEEKDAYS_SHORT[i]}</div>
             <div
               className={cx(
                 'mx-auto flex h-7 w-7 items-center justify-center rounded-full',
-                d === today ? 'bg-accent font-semibold text-white' : '',
+                d === today ? 'bg-accent font-semibold text-white' : d === selected ? 'font-bold text-accent ring-2 ring-accent' : '',
               )}
             >
               {Number(d.slice(8))}

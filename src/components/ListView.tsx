@@ -25,6 +25,7 @@ export default function ListView({
   addDefaults,
   showList,
   empty,
+  back = true,
 }: {
   title: ReactNode
   color: string
@@ -36,6 +37,8 @@ export default function ListView({
   addDefaults?: Partial<NewItem> | null
   showList?: boolean
   empty?: ReactNode
+  /** Mobilde Listeler'e dönen geri düğmesi */
+  back?: boolean
 }) {
   const isDesktop = useIsDesktop()
   const navigate = useNavigate()
@@ -46,8 +49,8 @@ export default function ListView({
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="pt-safe shrink-0 px-4 md:px-8">
         <div className="flex items-center gap-2 pt-3 md:pt-8">
-          {!isDesktop && (
-            <IconButton onClick={() => navigate('/')} className="-ml-2" aria-label="Geri" style={{ color }}>
+          {!isDesktop && back && (
+            <IconButton onClick={() => navigate('/listeler')} className="-ml-2" aria-label="Geri" style={{ color }}>
               <ChevronLeft className="h-6 w-6" />
             </IconButton>
           )}

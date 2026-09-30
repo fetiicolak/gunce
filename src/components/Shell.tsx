@@ -40,7 +40,8 @@ export default function Shell() {
       )}
       <main className="flex min-w-0 flex-1 flex-col">
         <Routes>
-          <Route path="/" element={isDesktop ? <Navigate to="/gunum" replace /> : <MobileHome />} />
+          <Route path="/" element={<Navigate to="/gunum" replace />} />
+          <Route path="/listeler" element={isDesktop ? <Navigate to="/gunum" replace /> : <MobileHome />} />
           <Route path="/gunum" element={<SmartListPage k="gunum" />} />
           <Route path="/onemli" element={<SmartListPage k="onemli" />} />
           <Route path="/planlanan" element={<SmartListPage k="planlanan" />} />
@@ -80,7 +81,7 @@ function ItemRedirect() {
 function TabBar() {
   const tabs = [
     { to: '/gunum', icon: Sun, label: 'Günüm' },
-    { to: '/', icon: ListIcon, label: 'Listeler', end: true },
+    { to: '/listeler', icon: ListIcon, label: 'Listeler' },
     { to: '/takvim', icon: CalendarDays, label: 'Takvim' },
     { to: '/ara', icon: Search, label: 'Ara' },
   ]
@@ -90,7 +91,6 @@ function TabBar() {
         <NavLink
           key={t.to}
           to={t.to}
-          end={t.end}
           className={({ isActive }) =>
             cx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-accent' : 'text-muted')
           }

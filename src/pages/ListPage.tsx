@@ -86,7 +86,7 @@ export default function ListPage() {
                 onClick={() => {
                   if (confirm(`"${list.name}" listesi ve içindeki ${open.length + done.length} öğe silinsin mi?`)) {
                     deleteList(list.id)
-                    navigate('/', { replace: true })
+                    navigate('/listeler', { replace: true })
                   }
                 }}
               >

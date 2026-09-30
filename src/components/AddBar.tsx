@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Bell, CalendarDays, CheckCircle2, Clock, Plus, X } from 'lucide-react'
+import { ArrowUp, Bell, CalendarDays, CheckCircle2, Clock, Plus, X } from 'lucide-react'
 import { createItem, defaultTime, todayStr, type NewItem } from '../lib/store'
 import { cx } from './ui'
 
@@ -53,9 +53,26 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={kind === 'task' ? placeholder : 'Hatırlatma ekle'}
-          className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-accent"
-          enterKeyHint="done"
+          onKeyDown={(e) => {
+            // Klavyedeki Enter/return tuşu görevi ekler (iOS dahil)
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              submit()
+            }
+          }}
+          className="min-w-0 flex-1 bg-transparent py-1 text-base outline-none placeholder:text-accent"
+          enterKeyHint="enter"
+          autoCapitalize="sentences"
         />
+        {title.trim() && (
+          <button
+            type="submit"
+            aria-label="Ekle"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white"
+          >
+            <ArrowUp className="h-4.5 w-4.5" strokeWidth={2.5} />
+          </button>
+        )}
       </div>
       {expanded && (
         <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2 text-sm">
