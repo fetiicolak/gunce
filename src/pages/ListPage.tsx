@@ -106,6 +106,7 @@ export default function ListPage() {
       icon={list.is_default ? <Home className="h-6 w-6" /> : <ListIcon className="h-6 w-6" />}
       actions={actions}
       sections={[{ key: 'open', items: open }]}
+      reorder
       completed={done}
       addDefaults={{ list_id: list.id }}
       empty="Bu liste boş. Aşağıdan ilk görevini ekle."

@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronLeft } from 'lucide-react'
+import { ChevronDown, ChevronLeft, GripVertical } from 'lucide-react'
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { updateItem } from '../lib/store'
 import { useNavigate } from 'react-router-dom'
 import type { NewItem } from '../lib/store'
 import type { Item } from '../lib/types'
@@ -26,6 +30,7 @@ export default function ListView({
   showList,
   empty,
   back = true,
+  reorder,
 }: {
   title: ReactNode
   color: string
@@ -39,6 +44,8 @@ export default function ListView({
   empty?: ReactNode
   /** Mobilde Listeler'e dönen geri düğmesi */
   back?: boolean
+  /** Açık görevler tutamaçtan sürüklenerek sıralanabilsin */
+  reorder?: boolean
 }) {
   const isDesktop = useIsDesktop()
   const navigate = useNavigate()
@@ -75,9 +82,11 @@ export default function ListView({
                       {s.title} <span className="font-normal text-muted">{s.items.length}</span>
                     </div>
                   )}
-                  {s.items.map((i) => (
-                    <TaskRow key={i.id} item={i} showList={showList} />
-                  ))}
+                  {reorder ? (
+                    <SortableItems items={s.items} showList={showList} />
+                  ) : (
+                    s.items.map((i) => <TaskRow key={i.id} item={i} showList={showList} />)
+                  )}
                 </div>
               ),
           )}
@@ -103,6 +112,76 @@ export default function ListView({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function SortableItems({ items, showList }: { items: Item[]; showList?: boolean }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+    const from = items.findIndex((i) => i.id === active.id)
+    const to = items.findIndex((i) => i.id === over.id)
+    if (from < 0 || to < 0) return
+    const rest = items.filter((_, k) => k !== from)
+    const before = rest[to - 1]?.position
+    const after = rest[to]?.position
+    // Komşuların arasına yerleştir; yalnız taşınan görev güncellenir
+    const position =
+      before === undefined ? after! - 1 : after === undefined ? before + 1 : before === after ? before : (before + after) / 2
+    updateItem(String(active.id), { position })
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+        {items.map((i) => (
+          <SortableRow key={i.id} item={i} showList={showList} />
+        ))}
+      </SortableContext>
+    </DndContext>
+  )
+}
+
+function SortableRow({ item, showList }: { item: Item; showList?: boolean }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
+        transition,
+      }}
+      className={cx('relative', isDragging && 'z-10 opacity-90 shadow-lg')}
+    >
+      <TaskRow
+        item={item}
+        showList={showList}
+        handle={
+          <button
+            ref={setActivatorNodeRef}
+            type="button"
+            aria-label="Sırayı değiştir"
+            onClick={(e) => e.stopPropagation()}
+            {...attributes}
+            {...listeners}
+            onPointerDown={(e) => {
+              // Satırın kaydırarak silme hareketi başlamasın
+              e.stopPropagation()
+              listeners?.onPointerDown?.(e)
+            }}
+            className="-my-2 -ml-2 mr-[-6px] flex cursor-grab touch-none items-center self-stretch px-1 text-muted active:cursor-grabbing"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        }
+      />
     </div>
   )
 }

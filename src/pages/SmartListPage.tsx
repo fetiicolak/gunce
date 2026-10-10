@@ -64,6 +64,7 @@ export default function SmartListPage({ k }: { k: SmartKey }) {
       completed={completed}
       showList
       back={k !== 'gunum'}
+      reorder={k !== 'planlanan'}
       empty={meta.empty}
       addDefaults={
         k === 'onemli' ? { important: true } : k === 'gunum' ? { due_date: today, my_day: today } : { due_date: today }

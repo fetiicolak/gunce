@@ -12,6 +12,7 @@ import CalendarPage from '../pages/CalendarPage'
 import DayPage from '../pages/DayPage'
 import SearchPage from '../pages/SearchPage'
 import SettingsPage from '../pages/SettingsPage'
+import CompletedPage from '../pages/CompletedPage'
 
 export default function Shell() {
   const isDesktop = useIsDesktop()
@@ -46,6 +47,7 @@ export default function Shell() {
           <Route path="/gunum" element={<SmartListPage k="gunum" />} />
           <Route path="/onemli" element={<SmartListPage k="onemli" />} />
           <Route path="/planlanan" element={<SmartListPage k="planlanan" />} />
+          <Route path="/tamamlanan" element={<CompletedPage />} />
           <Route path="/liste/:id" element={<ListPage />} />
           <Route path="/takvim" element={<CalendarPage />} />
           <Route path="/gun/:date" element={<DayPage />} />

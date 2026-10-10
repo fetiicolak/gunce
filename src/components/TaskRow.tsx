@@ -14,6 +14,7 @@ export default function TaskRow({
   virtual,
   showList,
   showDate = true,
+  handle,
 }: {
   item: Item
   /** Takvimde gösterilen tekrar tarihi */
@@ -21,6 +22,8 @@ export default function TaskRow({
   virtual?: boolean
   showList?: boolean
   showDate?: boolean
+  /** Sürükleyerek sıralama tutamacı */
+  handle?: React.ReactNode
 }) {
   const open = useOpenItem()
   const today = useToday()
@@ -78,6 +81,7 @@ export default function TaskRow({
         }}
         className="relative flex cursor-pointer touch-pan-y select-none items-center gap-3 rounded-lg bg-surface px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-colors hover:bg-surface-2"
       >
+        {handle}
         {item.kind === 'task' ? (
           <Checkbox checked={done} onChange={() => toggleComplete(item.id)} color={color} disabled={virtual} />
         ) : (
