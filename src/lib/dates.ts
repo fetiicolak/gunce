@@ -37,6 +37,8 @@ export function recurrenceLabel(r: Recurrence | null): string {
   if (!r) return 'Tekrar yok'
   const n = r.interval > 1 ? r.interval : 0
   switch (r.freq) {
+    case 'dates':
+      return [...(r.dates ?? [])].sort().map((d) => fmt(d, 'd MMM')).join(', ')
     case 'daily':
       return n ? `${n} günde bir` : 'Her gün'
     case 'weekly': {

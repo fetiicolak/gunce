@@ -4,9 +4,11 @@
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6 // 0 = Pazar (JS Date ile aynı)
 
 export interface Recurrence {
-  freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'dates'
   interval: number
   byWeekday?: Weekday[]
+  /** freq 'dates' için: kullanıcının tek tek seçtiği günler (YYYY-MM-DD) */
+  dates?: string[]
   until?: string | null
 }
 
@@ -90,6 +92,12 @@ export function nextOccurrence(date: string, rec: Recurrence): string | null {
   const interval = Math.max(1, rec.interval || 1)
   let next: string
   switch (rec.freq) {
+    case 'dates': {
+      const later = [...(rec.dates ?? [])].sort().find((d) => d > date)
+      if (!later) return null
+      next = later
+      break
+    }
     case 'daily':
       next = addDays(date, interval)
       break

@@ -324,10 +324,11 @@ function DateEditor({ item, late }: { item: Item; late: boolean }) {
   )
 }
 
-type Preset = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+type Preset = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly' | 'dates' | 'custom'
 
 function presetOf(r: Recurrence | null): Preset {
   if (!r) return 'none'
+  if (r.freq === 'dates') return 'dates'
   if (r.interval > 1) return 'custom'
   if (r.freq === 'weekly') {
     const d = [...(r.byWeekday ?? [])].sort().join()
@@ -359,12 +360,20 @@ function RecurrenceEditor({ item }: { item: Item }) {
         return set({ freq: 'monthly', interval: 1, until })
       case 'yearly':
         return set({ freq: 'yearly', interval: 1, until })
+      case 'dates':
+        return set({ freq: 'dates', interval: 1, dates: [item.due_date!] })
       case 'custom':
         return set(r ?? { freq: 'weekly', interval: 1, byWeekday: [dow], until })
     }
   }
 
-  const unit = { daily: 'günde', weekly: 'haftada', monthly: 'ayda', yearly: 'yılda' }
+  const unit: Partial<Record<Recurrence['freq'], string>> = { daily: 'günde', weekly: 'haftada', monthly: 'ayda', yearly: 'yılda' }
+  const setDates = (dates: string[]) => {
+    const sorted = [...new Set(dates)].sort()
+    if (!sorted.length) return
+    // Öğenin tarihi her zaman seçilen en erken gün olsun
+    updateItem(item.id, { due_date: sorted[0], recurrence: { freq: 'dates', interval: 1, dates: sorted } })
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -375,6 +384,7 @@ function RecurrenceEditor({ item }: { item: Item }) {
         <option value="weekly">Her hafta (günleri seç)</option>
         <option value="monthly">Her ay (ayın {Number(item.due_date!.slice(8))}'i)</option>
         <option value="yearly">Her yıl</option>
+        <option value="dates">Belirli tarihler…</option>
         <option value="custom">Özel…</option>
       </select>
       {r && custom && (
@@ -427,7 +437,38 @@ function RecurrenceEditor({ item }: { item: Item }) {
               })}
             </div>
       )}
-      {r && (
+      {r?.freq === 'dates' && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[...(r.dates ?? [])].sort().map((d) => (
+            <span key={d} className={cx(chipCls, 'bg-accent-soft pr-1.5')}>
+              {fmt(d, 'd MMM EEE')}
+              {(r.dates?.length ?? 0) > 1 && (
+                <button onClick={() => setDates(r.dates!.filter((x) => x !== d))} aria-label="Tarihi çıkar" className="text-muted">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </span>
+          ))}
+          <label className={cx(chipCls, 'relative text-accent')}>
+            <Plus className="h-4 w-4" /> Tarih ekle
+            <input
+              type="date"
+              value=""
+              onChange={(e) => e.target.value && setDates([...(r.dates ?? []), e.target.value])}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker()
+                } catch {
+                  /* yok say */
+                }
+              }}
+              className="absolute inset-0 opacity-0"
+              aria-label="Tarih ekle"
+            />
+          </label>
+        </div>
+      )}
+      {r && r.freq !== 'dates' && (
         <div className="flex items-center gap-2 text-sm text-muted">
           <span>Bitiş:</span>
           <input

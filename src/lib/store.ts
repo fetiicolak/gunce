@@ -389,6 +389,8 @@ export function createItem(input: NewItem): Item {
   }
   // Haftalık tekrar seçili günlere düşmüyorsa ilk tarihi seçilen ilk güne kaydır (ör. Çar → Per)
   const rec = item.recurrence
+  // Belirli tarihler: öğe en erken tarihte başlar
+  if (rec?.freq === 'dates' && rec.dates?.length) item.due_date = [...rec.dates].sort()[0]
   if (item.due_date && rec?.freq === 'weekly' && rec.byWeekday?.length && !rec.byWeekday.includes(weekday(item.due_date))) {
     item.due_date = nextOccurrence(item.due_date, rec) ?? item.due_date
   }

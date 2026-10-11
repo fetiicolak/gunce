@@ -7,7 +7,7 @@ import type { Recurrence } from '../lib/types'
 import { useUi } from '../lib/ui'
 import { cx } from './ui'
 
-type Menu = 'date' | 'repeat' | null
+type Menu = 'date' | 'dates' | 'repeat' | null
 
 /** Microsoft To Do tarzı ekleme kutusu: "+ Görev ekle" satırına dokununca açılır,
  *  altında tür / tarih / saat / tekrar çipleri çıkar. Saat varsayılan saatle dolu gelir;
@@ -91,7 +91,20 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
 
   const pickDate = (d: string) => {
     setDate(d)
+    if (recurrence?.freq === 'dates') setRecurrence(null)
     setMenu(null)
+  }
+
+  // Birden fazla tarih: tekrar olarak "belirli tarihler" saklanır, öğe en erken günde başlar
+  const multiDates = recurrence?.freq === 'dates' ? (recurrence.dates ?? []) : []
+  const setMultiDates = (dates: string[]) => {
+    const sorted = [...new Set(dates)].sort()
+    if (!sorted.length) {
+      setRecurrence(null)
+      return
+    }
+    setDate(sorted[0])
+    setRecurrence(sorted.length > 1 ? { freq: 'dates', interval: 1, dates: sorted } : null)
   }
 
   const repeatPresets: [string, Recurrence][] = [
@@ -193,7 +206,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
 
         <Chip active={!!date} onClick={guard(() => setMenu(menu === 'date' ? null : 'date'))}>
           <CalendarDays className="h-4 w-4" />
-          {date ? relativeDay(date, today) : 'Tarih'}
+          {multiDates.length ? recurrenceLabel(recurrence) : date ? relativeDay(date, today) : 'Tarih'}
           {date && !defaults.due_date && (
             <ClearX
               onClear={() => {
@@ -257,7 +270,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
           </Chip>
         )}
 
-        {date && (
+        {date && !multiDates.length && (
           <Chip active={!!recurrence} onClick={guard(() => setMenu(menu === 'repeat' ? null : 'repeat'))}>
             <Repeat className="h-4 w-4" />
             {recurrence ? recurrenceLabel(recurrence) : 'Tekrar'}
@@ -294,6 +307,44 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
               aria-label="Tarih seç"
             />
           </label>
+          <MenuItem onClick={() => setMenu('dates')} hint={multiDates.length ? `${multiDates.length} gün` : undefined}>
+            Birden fazla tarih…
+          </MenuItem>
+        </MenuBox>
+      )}
+
+      {menu === 'dates' && (
+        <MenuBox>
+          <div className="px-4 py-3">
+            <div className="mb-2 text-[15px]">Hangi günlerde?</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(multiDates.length ? multiDates : date ? [date] : []).map((d) => (
+                <span key={d} className="inline-flex items-center gap-1 rounded-full border border-accent bg-accent-soft px-3 py-1 text-sm text-accent">
+                  {fmt(d, 'd MMM EEE')}
+                  <ClearX onClear={() => setMultiDates((multiDates.length ? multiDates : [d]).filter((x) => x !== d))} />
+                </span>
+              ))}
+              <label className="relative inline-flex items-center gap-1 rounded-full border border-line px-3 py-1 text-sm text-accent">
+                <Plus className="h-4 w-4" /> Tarih ekle
+                <input
+                  type="date"
+                  value=""
+                  onChange={(e) => e.target.value && setMultiDates([...(multiDates.length ? multiDates : date ? [date] : []), e.target.value])}
+                  onClick={openPicker}
+                  className="absolute inset-0 opacity-0"
+                  aria-label="Tarih ekle"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onMouseDown={keepFocus}
+              onClick={() => setMenu(null)}
+              className="mt-3 w-full rounded-lg bg-accent py-2 text-sm font-medium text-white"
+            >
+              Tamam
+            </button>
+          </div>
         </MenuBox>
       )}
 
