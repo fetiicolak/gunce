@@ -32,8 +32,8 @@ export default function SmartListPage({ k }: { k: SmartKey }) {
     if (k === 'gunum') {
       const late = open.filter((i) => i.due_date && i.due_date < today)
       sections = [
-        { key: 'late', title: 'Gecikmiş', tone: 'danger', items: late },
         { key: 'today', title: late.length ? 'Bugün' : undefined, items: open.filter((i) => !i.due_date || i.due_date >= today) },
+        { key: 'late', title: 'Gecikmiş', tone: 'danger', items: late },
       ]
     } else if (k === 'planlanan') {
       const byDate = [...open].sort((a, b) =>
