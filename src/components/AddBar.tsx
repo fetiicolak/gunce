@@ -210,6 +210,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
                 setTime(e.target.value || defaultTime())
                 setTimeTouched(true)
               }}
+              onClick={openPicker}
               className="absolute inset-0 opacity-0"
               aria-label="Saat"
             />
@@ -248,6 +249,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
               type="date"
               value={date}
               onChange={(e) => e.target.value && pickDate(e.target.value)}
+              onClick={openPicker}
               className="absolute inset-0 opacity-0"
               aria-label="Tarih seç"
             />
@@ -342,12 +344,26 @@ function ClearX({ onClear }: { onClear: () => void }) {
   )
 }
 
+/** Kutunun içinde, çiplerin altında açılır; böylece hiçbir sayfada ekran dışına taşmaz. */
 function MenuBox({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: 'nearest' })
+  }, [])
   return (
-    <div className="absolute bottom-full left-2 right-2 mb-2 overflow-hidden rounded-xl border border-line bg-surface shadow-lg sm:right-auto sm:w-64">
+    <div ref={ref} className="mx-3 mb-3 overflow-hidden rounded-xl border border-line bg-surface">
       <div className="divide-y divide-line">{children}</div>
     </div>
   )
+}
+
+/** Şeffaf tarih/saat alanına tıklanınca seçiciyi aç (masaüstü tarayıcılar kendiliğinden açmıyor). */
+const openPicker = (e: React.MouseEvent<HTMLInputElement>) => {
+  try {
+    e.currentTarget.showPicker()
+  } catch {
+    /* desteklemeyen tarayıcı kendi davranışını kullanır */
+  }
 }
 
 function MenuItem({ onClick, hint, children }: { onClick: () => void; hint?: string; children: ReactNode }) {

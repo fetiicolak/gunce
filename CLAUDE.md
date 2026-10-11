@@ -14,5 +14,6 @@ Kişisel görev/hatırlatma/takvim PWA'sı (React 19 + Vite + Tailwind, Supabase
 
 - **Günüm sayfası** `src/pages/SmartListPage.tsx` (`k === 'gunum'` bölümü). `src/components/DayAgenda.tsx` ise Takvim'deki tek gün görünümü; ikisini karıştırma. İkisinde de bugünün öğeleri üstte, "Gecikmiş" altta.
 - **Onay soruları**: tarayıcının `confirm()`/`alert()` fonksiyonlarını kullanma. `askConfirm({ title, message?, confirmText?, danger? })` (`src/components/ConfirmDialog.tsx`) Promise<boolean> döner; `ConfirmHost` `main.tsx`'te bağlı.
+- **Ekleme kutusu** `src/components/AddBar.tsx`: tarih/tekrar menüleri (`MenuBox`) yüzen değil, kutunun içinde çiplerin altında açılır ve kendini görünür alana kaydırır; takvimde ekran dışına taşmasın diye böyle. Şeffaf tarih/saat alanları tıklanınca `showPicker()` ile açılır (masaüstü tarayıcı kendiliğinden açmıyor).
 - Görev satırı, kaydırarak silme: `src/components/TaskRow.tsx` (`useSwipeToDelete`, onay async).
 - Veri katmanı `src/lib/store.ts`, seçiciler `src/lib/selectors.ts`, tekrar/bildirim hesapları `supabase/functions/_shared/schedule.ts`.
