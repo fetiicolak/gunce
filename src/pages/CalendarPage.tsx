@@ -17,7 +17,6 @@ import { cx, IconButton, Segmented, useIsDesktop } from '../components/ui'
 import { isDone, occurrencesByDay, overdue, useActiveItems, useSettings, type Occurrence } from '../lib/selectors'
 import { fmt, longDay, MONTHS, relativeDay, startOfMonth, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import { updateItem, useStore } from '../lib/store'
-import { useOpenItem } from '../lib/nav'
 import { useToday } from '../lib/useToday'
 import { LIST_COLORS } from '../lib/types'
 
@@ -304,7 +303,6 @@ function DayCell({
 }
 
 function Chip({ o, small }: { o: Occurrence; small?: boolean }) {
-  const open = useOpenItem()
   const today = useToday()
   const settings = useSettings()
   const list = useStore((s) => s.lists[o.item.list_id])
@@ -322,10 +320,6 @@ function Chip({ o, small }: { o: Occurrence; small?: boolean }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={(e) => {
-        e.stopPropagation()
-        open(o.item.id)
-      }}
       style={{
         transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
         borderLeftColor: color,
