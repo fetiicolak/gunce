@@ -53,6 +53,7 @@ export function recurrenceLabel(r: Recurrence | null): string {
 }
 
 export function reminderLabel(r: Reminder): string {
+  if (r.type === 'time') return r.time
   if (r.type === 'absolute') {
     const [d, t] = r.at.split('T')
     return `${fmt(d, 'd MMM')} ${t}`

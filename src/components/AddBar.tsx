@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowUp, Bell, CalendarDays, CheckCircle2, Clock, Plus, Repeat, X } from 'lucide-react'
 import { addDays, type Weekday } from '@shared/schedule.ts'
-import { createItem, defaultTime, todayStr, type NewItem } from '../lib/store'
+import { createItem, defaultTime, todayStr, uuid, type NewItem } from '../lib/store'
 import { fmt, recurrenceLabel, relativeDay, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import type { Recurrence } from '../lib/types'
 import { useUi } from '../lib/ui'
@@ -18,6 +18,8 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
   const [date, setDate] = useState(defaults.due_date ?? '')
   const [time, setTime] = useState(defaultTime)
   const [timeTouched, setTimeTouched] = useState(false)
+  // Asıl saatin yanında ek bildirim saatleri (ör. 12:00 ve 15:00)
+  const [extraTimes, setExtraTimes] = useState<string[]>([])
   const [recurrence, setRecurrence] = useState<Recurrence | null>(null)
   const [open, setOpen] = useState(false)
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
     setDate(defaults.due_date ?? '')
     setTime(defaultTime())
     setTimeTouched(false)
+    setExtraTimes([])
     setRecurrence(null)
     setMenu(null)
   }
@@ -71,6 +74,14 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
       due_time: date ? time : null,
       time_explicit: !!date && timeTouched,
       recurrence: date ? recurrence : null,
+      ...(date && extraTimes.length
+        ? {
+            reminders: [
+              { id: uuid(), type: 'offset' as const, minutes: 0 },
+              ...[...new Set(extraTimes)].filter((t) => t !== time).map((t) => ({ id: uuid(), type: 'time' as const, time: t })),
+            ],
+          }
+        : {}),
     })
     reset()
     // Ekledikten sonra kutuyu kapat, klavyeyi indir; liste görünsün
@@ -217,6 +228,35 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
           </label>
         )}
 
+        {date &&
+          extraTimes.map((t, i) => (
+            <label
+              key={i}
+              className="relative inline-flex shrink-0 items-center gap-1.5 rounded-full border border-accent bg-accent-soft px-3 py-1.5 text-sm text-accent"
+            >
+              <Clock className="h-4 w-4" />
+              {t}
+              <input
+                type="time"
+                value={t}
+                onChange={(e) => e.target.value && setExtraTimes(extraTimes.map((x, j) => (j === i ? e.target.value : x)))}
+                onClick={openPicker}
+                className="absolute inset-0 opacity-0"
+                aria-label="Ek saat"
+              />
+              <span className="relative z-10">
+                <ClearX onClear={() => setExtraTimes(extraTimes.filter((_, j) => j !== i))} />
+              </span>
+            </label>
+          ))}
+
+        {date && (
+          <Chip onClick={guard(() => setExtraTimes([...extraTimes, nextHour(extraTimes.at(-1) ?? time)]))}>
+            <Plus className="h-4 w-4" />
+            Saat
+          </Chip>
+        )}
+
         {date && (
           <Chip active={!!recurrence} onClick={guard(() => setMenu(menu === 'repeat' ? null : 'repeat'))}>
             <Repeat className="h-4 w-4" />
@@ -309,6 +349,12 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
   )
 }
 
+/** "12:00" → "13:00" (gün sonunu aşmaz) */
+const nextHour = (t: string) => {
+  const h = Math.min(23, Number(t.slice(0, 2)) + 1)
+  return `${String(h).padStart(2, '0')}:${t.slice(3, 5)}`
+}
+
 /** Düğmeye basınca yazı alanı odağı kaybetmesin; klavye açık kalsın */
 const keepFocus = (e: React.MouseEvent) => e.preventDefault()
 
@@ -334,6 +380,8 @@ function ClearX({ onClear }: { onClear: () => void }) {
       role="button"
       aria-label="Kaldır"
       onClick={(e) => {
+        // Etiketin içindeyken saat seçicisini de açmasın
+        e.preventDefault()
         e.stopPropagation()
         onClear()
       }}

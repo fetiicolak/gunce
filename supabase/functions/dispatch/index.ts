@@ -6,6 +6,7 @@ import webpush from 'npm:web-push@3.6.7'
 import {
   effectiveTime,
   fireTimes,
+  lastTimeOfDay,
   nextOccurrence,
   zonedParts,
   zonedToUtc,
@@ -127,7 +128,8 @@ async function run(now: number) {
 /** Tekrarlayan "hatırlatma" türündeki öğeleri, zamanı geçince bir sonraki tekrara taşır. */
 async function rollForward(item: Item, settings: ScheduleSettings, now: number): Promise<boolean> {
   if (item.kind !== 'reminder' || !item.recurrence || !item.due_date) return false
-  const time = effectiveTime(item, settings)
+  // Ek bildirim saatleri de geçmeden bir sonraki tekrara geçme
+  const time = lastTimeOfDay(item, settings)
   let date: string | null = item.due_date
   while (date && zonedToUtc(date, time, settings.timezone) < now - WINDOW_MS) {
     date = nextOccurrence(date, item.recurrence)
@@ -161,6 +163,8 @@ function singlePayload(item: Item, ft: FireTime, s: ScheduleSettings): Payload {
   let line: string
   if (ft.type === 'overdue') {
     line = `Gecikmiş görev · ${dateFmt(item.due_date!, s.timezone, { day: 'numeric', month: 'long' })}`
+  } else if (ft.type === 'time') {
+    line = `${kindLabel} · ${ft.time}`
   } else if (ft.type === 'absolute') {
     line = `${kindLabel}${item.due_date ? ` · ${when(item.due_date, time)}` : ''}`
   } else if (ft.minutes) {

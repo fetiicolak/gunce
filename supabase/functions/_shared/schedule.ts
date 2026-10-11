@@ -13,6 +13,7 @@ export interface Recurrence {
 export type Reminder =
   | { id: string; type: 'offset'; minutes: number }
   | { id: string; type: 'absolute'; at: string } // YYYY-MM-DDTHH:mm, kullanıcının saat diliminde
+  | { id: string; type: 'time'; time: string } // HH:mm, öğenin (her tekrarın) gününde ek bildirim saati
 
 export interface SchedulableItem {
   id: string
@@ -34,8 +35,9 @@ export interface ScheduleSettings {
 export interface FireTime {
   key: string
   at: number
-  type: 'offset' | 'absolute' | 'overdue'
+  type: 'offset' | 'absolute' | 'time' | 'overdue'
   minutes?: number
+  time?: string
 }
 
 // ---------- Tarih yardımcıları (YYYY-MM-DD metinleri üzerinde, saat diliminden bağımsız) ----------
@@ -181,6 +183,9 @@ export function fireTimes(item: SchedulableItem, settings: ScheduleSettings): Fi
     if (r.type === 'offset' && item.due_date) {
       const occ = zonedToUtc(item.due_date, effectiveTime(item, settings), tz)
       out.push({ key: `${item.due_date}|${r.id}`, at: occ - r.minutes * 60_000, type: 'offset', minutes: r.minutes })
+    } else if (r.type === 'time' && item.due_date && normTime(r.time)) {
+      const t = normTime(r.time)!
+      out.push({ key: `${item.due_date}|${r.id}`, at: zonedToUtc(item.due_date, t, tz), type: 'time', time: t })
     } else if (r.type === 'absolute' && r.at) {
       const [d, t] = r.at.split('T')
       out.push({ key: `abs|${r.at}`, at: zonedToUtc(d, t, tz), type: 'absolute' })
@@ -191,6 +196,16 @@ export function fireTimes(item: SchedulableItem, settings: ScheduleSettings): Fi
     out.push({ key: `${item.due_date}|overdue`, at, type: 'overdue' })
   }
   return out
+}
+
+/** Öğenin o günkü en geç saati (asıl saat ya da ek bildirim saatleri). */
+export function lastTimeOfDay(item: SchedulableItem, settings: ScheduleSettings): string {
+  let last = effectiveTime(item, settings)
+  for (const r of item.reminders ?? []) {
+    const t = r.type === 'time' ? normTime(r.time) : null
+    if (t && t > last) last = t
+  }
+  return last
 }
 
 export function isOverdue(item: SchedulableItem, settings: ScheduleSettings, now = Date.now()): boolean {

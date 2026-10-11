@@ -462,13 +462,14 @@ const OFFSETS: [number, string][] = [
 ]
 
 function RemindersEditor({ item }: { item: Item }) {
-  const [adding, setAdding] = useState<'menu' | 'custom' | null>(null)
+  const [adding, setAdding] = useState<'menu' | 'custom' | 'time' | null>(null)
+  const [extraTime, setExtraTime] = useState('')
   const [custom, setCustom] = useState('')
   const today = useToday()
   const set = (reminders: Reminder[]) => updateItem(item.id, { reminders })
-  const sorted = [...item.reminders].sort((a, b) =>
-    a.type === 'offset' && b.type === 'offset' ? a.minutes - b.minutes : a.type === 'offset' ? -1 : 1,
-  )
+  // Sıra: önceden uyarılar, o günün ek saatleri, özel tarih/saatler
+  const order = (r: Reminder) => (r.type === 'offset' ? `0${String(1e6 - r.minutes).padStart(7, '0')}` : r.type === 'time' ? `1${r.time}` : `2${r.at}`)
+  const sorted = [...item.reminders].sort((a, b) => order(a).localeCompare(order(b)))
   const used = new Set(item.reminders.flatMap((r) => (r.type === 'offset' ? [r.minutes] : [])))
 
   return (
@@ -505,6 +506,9 @@ function RemindersEditor({ item }: { item: Item }) {
               {label}
             </button>
           ))}
+          <button className={chipCls} onClick={() => setAdding('time')}>
+            O gün başka saatte…
+          </button>
           <button className={chipCls} onClick={() => setAdding('custom')}>
             Özel tarih/saat…
           </button>
@@ -512,6 +516,26 @@ function RemindersEditor({ item }: { item: Item }) {
             Vazgeç
           </button>
         </div>
+      )}
+      {adding === 'time' && (
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!extraTime) return
+            set([...item.reminders, { id: uuid(), type: 'time', time: extraTime }])
+            setExtraTime('')
+            setAdding(null)
+          }}
+        >
+          <input type="time" value={extraTime} onChange={(e) => setExtraTime(e.target.value)} className={cx(inputCls, 'w-32')} />
+          <button type="submit" className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white">
+            Ekle
+          </button>
+          <button type="button" className="text-sm text-muted" onClick={() => setAdding(null)}>
+            Vazgeç
+          </button>
+        </form>
       )}
       {adding === 'custom' && (
         <form
