@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/ConfirmDialog'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, ChevronLeft, Clock, Globe, LogOut, Moon, RefreshCw, Share, Smartphone, Trash2 } from 'lucide-react'
@@ -121,7 +122,7 @@ export default function SettingsPage() {
           <Card title="Hesap">
             <Row icon={<LogOut className="h-5 w-5" />} title={email || 'Oturum açık'}>
               <button
-                onClick={() => confirm('Çıkış yapılsın mı?') && supabase.auth.signOut()}
+                onClick={async () => (await askConfirm({ title: 'Çıkış yapılsın mı?', confirmText: 'Çıkış yap', danger: true })) && supabase.auth.signOut()}
                 className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-danger hover:bg-surface-2"
               >
                 Çıkış yap

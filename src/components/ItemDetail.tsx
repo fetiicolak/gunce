@@ -1,3 +1,4 @@
+import { askConfirm } from './ConfirmDialog'
 import { useEffect, useState } from 'react'
 import {
   Bell,
@@ -75,8 +76,8 @@ function Detail({ item, onClose, isDesktop }: { item: Item; onClose: () => void;
         <IconButton
           aria-label="Sil"
           className="hover:text-danger"
-          onClick={() => {
-            if (confirm(`"${item.title}" silinsin mi?`)) {
+          onClick={async () => {
+            if (await askConfirm({ title: `"${item.title}" silinsin mi?`, confirmText: 'Sil', danger: true })) {
               deleteItem(item.id)
               onClose()
             }

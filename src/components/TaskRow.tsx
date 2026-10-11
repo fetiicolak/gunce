@@ -1,3 +1,4 @@
+import { askConfirm } from './ConfirmDialog'
 import { useRef, useState } from 'react'
 import { Bell, CalendarDays, Repeat, Star, StickyNote, Sun, Trash2 } from 'lucide-react'
 import { deleteItem, toggleComplete, updateItem, useStore } from '../lib/store'
@@ -36,8 +37,9 @@ export default function TaskRow({
   const shownDate = date ?? item.due_date
   const stepsDone = item.steps.filter((s) => s.done).length
 
-  const swipe = useSwipeToDelete(!virtual, () => {
-    if (!confirm(`"${item.title}" silinsin mi?\nBu işlem geri alınamaz.`)) return false
+  const swipe = useSwipeToDelete(!virtual, async () => {
+    const ok = await askConfirm({ title: `"${item.title}" silinsin mi?`, message: 'Bu işlem geri alınamaz.', confirmText: 'Sil', danger: true })
+    if (!ok) return false
     deleteItem(item.id)
     return true
   })
@@ -119,7 +121,7 @@ export default function TaskRow({
 const SWIPE_THRESHOLD = 90
 
 /** Satırı sola kaydırınca silme. Dikey kaydırma (listeyi kaydırmak) tarayıcıda kalır. */
-function useSwipeToDelete(enabled: boolean, onDelete: () => boolean) {
+function useSwipeToDelete(enabled: boolean, onDelete: () => Promise<boolean>) {
   const [dx, setDx] = useState(0)
   const [dragging, setDragging] = useState(false)
   const start = useRef<{ x: number; y: number; axis: 'h' | 'v' | null } | null>(null)
@@ -141,8 +143,8 @@ function useSwipeToDelete(enabled: boolean, onDelete: () => boolean) {
     if (dxRef.current <= -SWIPE_THRESHOLD) {
       setOffset(-window.innerWidth)
       // Onay penceresi kayma animasyonu bittikten sonra açılsın
-      setTimeout(() => {
-        if (!onDelete()) setOffset(0)
+      setTimeout(async () => {
+        if (!(await onDelete())) setOffset(0)
       }, 180)
     } else {
       setOffset(0)

@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/ConfirmDialog'
 import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Home, List as ListIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
@@ -83,8 +84,14 @@ export default function ListPage() {
             {!list.is_default && (
               <button
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-danger hover:bg-surface-2"
-                onClick={() => {
-                  if (confirm(`"${list.name}" listesi ve içindeki ${open.length + done.length} öğe silinsin mi?`)) {
+                onClick={async () => {
+                  const ok = await askConfirm({
+                    title: `"${list.name}" listesi silinsin mi?`,
+                    message: `İçindeki ${open.length + done.length} öğe de silinir.`,
+                    confirmText: 'Sil',
+                    danger: true,
+                  })
+                  if (ok) {
                     deleteList(list.id)
                     navigate('/listeler', { replace: true })
                   }
