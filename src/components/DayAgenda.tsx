@@ -18,17 +18,6 @@ export default function DayAgenda({ date, compact }: { date: string; compact?: b
 
   return (
     <div className="flex flex-col gap-1.5">
-      {late.length > 0 && (
-        <>
-          <div className="px-1 text-sm font-semibold text-danger">
-            Gecikmiş <span className="font-normal text-muted">{late.length}</span>
-          </div>
-          {late.map((i) => (
-            <TaskRow key={i.id} item={i} showList />
-          ))}
-          <div className="mt-2 px-1 text-sm font-semibold">O gün</div>
-        </>
-      )}
       {occ.length === 0 && !compact && <div className="py-6 text-center text-sm text-muted">Bu gün için bir şey yok.</div>}
       {occ.map((o) => (
         <TaskRow key={o.item.id + o.date} item={o.item} date={o.date} virtual={o.virtual} showList showDate={false} />
@@ -36,6 +25,16 @@ export default function DayAgenda({ date, compact }: { date: string; compact?: b
       <div className="mt-1">
         <AddBar key={date} defaults={{ due_date: date }} />
       </div>
+      {late.length > 0 && (
+        <>
+          <div className="mt-3 px-1 text-sm font-semibold text-danger">
+            Gecikmiş <span className="font-normal text-muted">{late.length}</span>
+          </div>
+          {late.map((i) => (
+            <TaskRow key={i.id} item={i} showList />
+          ))}
+        </>
+      )}
     </div>
   )
 }
