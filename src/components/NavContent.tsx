@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { CalendarCheck, CalendarDays, CircleCheckBig, Home, List as ListIcon, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
+import { Bell, CalendarCheck, CalendarDays, CircleCheckBig, Home, List as ListIcon, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
 import { createList, useStore } from '../lib/store'
 import { useCounts, useLists } from '../lib/selectors'
 import { LIST_COLORS } from '../lib/types'
@@ -72,15 +72,19 @@ export default function NavContent({ mobile }: { mobile?: boolean }) {
 
         <div className="mx-3 my-2 border-t border-line" />
 
-        {lists.map((l) =>
-          row(
-            `/liste/${l.id}`,
-            l.is_default ? <Home className="h-5 w-5" /> : <ListIcon className="h-5 w-5" />,
-            l.name,
-            counts.byList[l.id],
-            LIST_COLORS[l.color],
-          ),
-        )}
+        {lists.map((l) => (
+          <Fragment key={l.id}>
+            {row(
+              `/liste/${l.id}`,
+              l.is_default ? <Home className="h-5 w-5" /> : <ListIcon className="h-5 w-5" />,
+              l.name,
+              counts.byList[l.id],
+              LIST_COLORS[l.color],
+            )}
+            {/* Hatırlatmalar, varsayılan "Görevler" listesinin hemen altında */}
+            {l.is_default && row('/hatirlatmalar', <Bell className="h-5 w-5" />, 'Hatırlatmalar', counts.hatirlatmalar, '#2f5fd0')}
+          </Fragment>
+        ))}
 
         {adding ? (
           <div className="flex items-center gap-3 px-3 py-2">

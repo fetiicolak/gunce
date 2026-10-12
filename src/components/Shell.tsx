@@ -44,9 +44,10 @@ export default function Shell() {
         <Routes>
           <Route path="/" element={<Navigate to="/gunum" replace />} />
           <Route path="/listeler" element={isDesktop ? <Navigate to="/gunum" replace /> : <MobileHome />} />
-          <Route path="/gunum" element={<SmartListPage k="gunum" />} />
-          <Route path="/onemli" element={<SmartListPage k="onemli" />} />
-          <Route path="/planlanan" element={<SmartListPage k="planlanan" />} />
+          <Route path="/gunum" element={<SmartListPage key="gunum" k="gunum" />} />
+          <Route path="/onemli" element={<SmartListPage key="onemli" k="onemli" />} />
+          <Route path="/planlanan" element={<SmartListPage key="planlanan" k="planlanan" />} />
+          <Route path="/hatirlatmalar" element={<SmartListPage key="hatirlatmalar" k="hatirlatmalar" />} />
           <Route path="/tamamlanan" element={<CompletedPage />} />
           <Route path="/liste/:id" element={<ListPage />} />
           <Route path="/takvim" element={<CalendarPage />} />

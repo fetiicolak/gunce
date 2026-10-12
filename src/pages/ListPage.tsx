@@ -20,7 +20,8 @@ export default function ListPage() {
   const [renaming, setRenaming] = useState(false)
 
   const { open, done } = useMemo(() => {
-    const mine = items.filter((i) => i.list_id === id)
+    // Hatırlatmalar listelerde değil, kendi "Hatırlatmalar" sayfasında görünür
+    const mine = items.filter((i) => i.list_id === id && i.kind === 'task')
     return {
       open: sortItems(mine.filter((i) => !isDone(i, today))),
       done: mine
@@ -112,10 +113,7 @@ export default function ListPage() {
       color={color}
       icon={list.is_default ? <Home className="h-6 w-6" /> : <ListIcon className="h-6 w-6" />}
       actions={actions}
-      sections={[
-        { key: 'open', items: open.filter((i) => i.kind === 'task') },
-        { key: 'reminders', title: 'Hatırlatmalar', items: open.filter((i) => i.kind === 'reminder') },
-      ]}
+      sections={[{ key: 'open', items: open }]}
       reorder
       completed={done}
       addDefaults={{ list_id: list.id }}

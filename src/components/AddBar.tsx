@@ -14,7 +14,7 @@ type Menu = 'date' | 'dates' | 'repeat' | null
  *  kullanıcı değiştirirse öğe "saati elle girilmiş" olarak kaydedilir. */
 export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defaults: Partial<NewItem>; placeholder?: string }) {
   const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<'task' | 'reminder'>('task')
+  const [kind, setKind] = useState<'task' | 'reminder'>(defaults.kind ?? 'task')
   const [date, setDate] = useState(defaults.due_date ?? '')
   const [time, setTime] = useState(defaultTime)
   const [timeTouched, setTimeTouched] = useState(false)
@@ -53,7 +53,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
   }
 
   const reset = () => {
-    setKind('task')
+    setKind(defaults.kind ?? 'task')
     setTitle('')
     setDate(defaults.due_date ?? '')
     setTime(defaultTime())

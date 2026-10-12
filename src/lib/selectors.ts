@@ -34,7 +34,7 @@ export function sortItems(items: Item[]): Item[] {
   return [...items].sort((a, b) => a.position - b.position)
 }
 
-export type SmartKey = 'gunum' | 'onemli' | 'planlanan'
+export type SmartKey = 'gunum' | 'onemli' | 'planlanan' | 'hatirlatmalar'
 
 export function smartFilter(key: SmartKey, today: string) {
   return (i: Item) => {
@@ -45,6 +45,8 @@ export function smartFilter(key: SmartKey, today: string) {
         return i.important
       case 'planlanan':
         return !!i.due_date
+      case 'hatirlatmalar':
+        return i.kind === 'reminder'
     }
   }
 }
@@ -55,11 +57,13 @@ export function useCounts() {
   return useMemo(() => {
     const open = items.filter((i) => !isDone(i, today))
     const byList: Record<string, number> = {}
-    for (const i of open) byList[i.list_id] = (byList[i.list_id] ?? 0) + 1
+    // Liste sayfaları sadece görevleri gösterir; hatırlatmalar kendi sayfasında
+    for (const i of open) if (i.kind === 'task') byList[i.list_id] = (byList[i.list_id] ?? 0) + 1
     return {
       gunum: open.filter(smartFilter('gunum', today)).length,
       onemli: open.filter(smartFilter('onemli', today)).length,
       planlanan: open.filter(smartFilter('planlanan', today)).length,
+      hatirlatmalar: open.filter(smartFilter('hatirlatmalar', today)).length,
       byList,
     }
   }, [items, today])

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CalendarCheck, Star, Sun } from 'lucide-react'
+import { Bell, CalendarCheck, Star, Sun } from 'lucide-react'
 import { addDays } from '@shared/schedule.ts'
 import ListView, { type Section } from '../components/ListView'
 import { isDone, smartFilter, sortItems, useActiveItems, type SmartKey } from '../lib/selectors'
@@ -15,6 +15,7 @@ const META: Record<SmartKey, { title: string; color: string; icon: React.ReactNo
     icon: <CalendarCheck className="h-6 w-6" />,
     empty: 'Tarihi olan görevler burada görünür.',
   },
+  hatirlatmalar: { title: 'Hatırlatmalar', color: '#2f5fd0', icon: <Bell className="h-6 w-6" />, empty: 'Hatırlatmaların burada görünür.' },
 }
 
 export default function SmartListPage({ k }: { k: SmartKey }) {
@@ -67,7 +68,7 @@ export default function SmartListPage({ k }: { k: SmartKey }) {
       reorder={k !== 'planlanan'}
       empty={meta.empty}
       addDefaults={
-        k === 'onemli' ? { important: true } : k === 'gunum' ? { due_date: today, my_day: today } : { due_date: today }
+        k === 'hatirlatmalar' ? { kind: 'reminder', due_date: today } : k === 'onemli' ? { important: true } : k === 'gunum' ? { due_date: today, my_day: today } : { due_date: today }
       }
     />
   )
