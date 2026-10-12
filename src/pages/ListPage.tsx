@@ -112,7 +112,10 @@ export default function ListPage() {
       color={color}
       icon={list.is_default ? <Home className="h-6 w-6" /> : <ListIcon className="h-6 w-6" />}
       actions={actions}
-      sections={[{ key: 'open', items: open }]}
+      sections={[
+        { key: 'open', items: open.filter((i) => i.kind === 'task') },
+        { key: 'reminders', title: 'Hatırlatmalar', items: open.filter((i) => i.kind === 'reminder') },
+      ]}
       reorder
       completed={done}
       addDefaults={{ list_id: list.id }}
