@@ -30,14 +30,22 @@ export default function SmartListPage({ k }: { k: SmartKey }) {
       .filter((i) => isDone(i, today))
       .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
     let sections: Section[]
+    // Günüm ve Planlanan'da hatırlatmalar görevlerden ayrı, en altta kendi başlığı altında
+    const split = k === 'gunum' || k === 'planlanan'
+    const reminders = split
+      ? open
+          .filter((i) => i.kind === 'reminder')
+          .sort((a, b) => ((a.due_date ?? '') + (a.due_time ?? '')).localeCompare((b.due_date ?? '') + (b.due_time ?? '')))
+      : []
+    const tasks = split ? open.filter((i) => i.kind === 'task') : open
     if (k === 'gunum') {
-      const late = open.filter((i) => i.due_date && i.due_date < today)
+      const late = tasks.filter((i) => i.due_date && i.due_date < today)
       sections = [
-        { key: 'today', title: late.length ? 'Bugün' : undefined, items: open.filter((i) => !i.due_date || i.due_date >= today) },
+        { key: 'today', title: late.length ? 'Bugün' : undefined, items: tasks.filter((i) => !i.due_date || i.due_date >= today) },
         { key: 'late', title: 'Gecikmiş', tone: 'danger', items: late },
       ]
     } else if (k === 'planlanan') {
-      const byDate = [...open].sort((a, b) =>
+      const byDate = [...tasks].sort((a, b) =>
         (a.due_date! + (a.due_time ?? '')).localeCompare(b.due_date! + (b.due_time ?? '')),
       )
       const tomorrow = addDays(today, 1)
@@ -52,6 +60,7 @@ export default function SmartListPage({ k }: { k: SmartKey }) {
     } else {
       sections = [{ key: 'all', items: open }]
     }
+    if (reminders.length) sections.push({ key: 'reminders', title: 'Hatırlatmalar', items: reminders })
     return { sections, completed: k === 'planlanan' ? [] : done }
   }, [items, today, k])
 
