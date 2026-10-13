@@ -74,3 +74,22 @@ select {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Tıklanabilen her şeyde el imleci (Tailwind v4 düğmelerde varsayılan oku bırakıyor) */
+@layer base {
+  button:not(:disabled),
+  [role='button'],
+  [role='checkbox'],
+  a[href],
+  select,
+  summary,
+  label:has(> input[type='date'], > input[type='time'], > input[type='checkbox']),
+  input[type='date'],
+  input[type='time'],
+  input[type='checkbox'] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}

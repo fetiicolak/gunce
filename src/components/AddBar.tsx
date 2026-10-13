@@ -155,7 +155,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
             }
           }}
           placeholder={kind === 'task' ? placeholder : 'Hatırlatma ekle'}
-          className={cx('min-w-0 flex-1 bg-transparent py-1 text-base outline-none', open ? 'placeholder:text-muted' : 'placeholder:text-accent')}
+          className={cx('min-w-0 flex-1 bg-transparent py-1 text-base outline-none', open ? 'placeholder:text-muted' : 'cursor-pointer placeholder:text-accent')}
           enterKeyHint="enter"
           autoCapitalize="sentences"
         />
