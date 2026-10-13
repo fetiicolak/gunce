@@ -39,6 +39,7 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
       setMenu(null)
       if (!inputRef.current?.value.trim()) {
         setOpen(false)
+        setKind(defaults.kind ?? 'task')
         inputRef.current?.blur()
       }
     }
@@ -158,6 +159,23 @@ export default function AddBar({ defaults, placeholder = 'Görev ekle' }: { defa
           enterKeyHint="enter"
           autoCapitalize="sentences"
         />
+        {/* Tür önceden belli değilse kapalı kutuda yan yana ikinci düğme: doğrudan hatırlatma olarak aç */}
+        {!open && !defaults.kind && (
+          <button
+            type="button"
+            onClick={() => {
+              openedAt.current = Date.now()
+              setKind('reminder')
+              setOpen(true)
+              // Dokunuşun içinde odakla; iPhone'da klavye ancak böyle açılır
+              inputRef.current?.focus()
+            }}
+            className="flex shrink-0 items-center gap-2 border-l border-line py-1 pl-3 text-base text-accent"
+          >
+            <Bell className="h-5 w-5" />
+            Hatırlatma ekle
+          </button>
+        )}
         {open && (
         <button
           type="submit"

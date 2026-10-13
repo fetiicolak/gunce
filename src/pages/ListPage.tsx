@@ -116,7 +116,7 @@ export default function ListPage() {
       sections={[{ key: 'open', items: open }]}
       reorder
       completed={done}
-      addDefaults={{ list_id: list.id }}
+      addDefaults={{ list_id: list.id, kind: 'task' }}
       empty="Bu liste boş. Aşağıdan ilk görevini ekle."
     />
   )
