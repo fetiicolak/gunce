@@ -83,9 +83,10 @@ export default function CalendarPage() {
   }
 
   const { y, m } = { y: Number(selected.slice(0, 4)), m: Number(selected.slice(5, 7)) }
-  const title =
+  // Okların arasındaki etiket: ay görünümünde ay adı (başka yılsa yıl da), hafta görünümünde haftanın aralığı
+  const period =
     view === 'ay'
-      ? `${MONTHS[m - 1]} ${y}`
+      ? `${MONTHS[m - 1]}${String(y) === today.slice(0, 4) ? '' : ` ${y}`}`
       : days[0].slice(5, 7) === days[6].slice(5, 7)
         ? `${fmt(days[0], 'd')} – ${fmt(days[6], 'd MMMM')}`
         : `${fmt(days[0], 'd MMM')} – ${fmt(days[6], 'd MMM')}`
@@ -96,27 +97,36 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-8">
           <div className="flex min-w-0 basis-full items-center gap-2 text-[#1f8f98] sm:flex-1 sm:basis-auto">
             <CalendarDays className="h-6 w-6" />
-            <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+            <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">Takvim</h1>
           </div>
-          <div className="flex flex-1 items-center gap-1 sm:flex-none">
-            <IconButton onClick={() => move(-1)} aria-label="Önceki">
+          <div className="flex min-w-0 flex-1 items-center sm:flex-none">
+            <IconButton onClick={() => move(-1)} aria-label={view === 'ay' ? 'Önceki ay' : 'Önceki hafta'}>
               <ChevronLeft className="h-5 w-5" />
             </IconButton>
-            <button onClick={() => update({ t: today })} className="rounded-lg px-2 py-1 text-sm font-medium hover:bg-surface-2">
-              Bugün
-            </button>
-            <IconButton onClick={() => move(1)} aria-label="Sonraki">
+            <span className="min-w-0 truncate text-center text-[15px] font-semibold sm:min-w-24">{period}</span>
+            <IconButton onClick={() => move(1)} aria-label={view === 'ay' ? 'Sonraki ay' : 'Sonraki hafta'}>
               <ChevronRight className="h-5 w-5" />
             </IconButton>
           </div>
-          <Segmented
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'ay', label: 'Ay' },
-              { value: 'hafta', label: 'Hafta' },
-            ]}
-          />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => update({ t: today })}
+              className={cx(
+                'rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
+                selected === today ? 'bg-surface-2 text-muted' : 'bg-surface-2 text-ink hover:text-accent',
+              )}
+            >
+              Bugün
+            </button>
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'hafta', label: 'Hafta' },
+                { value: 'ay', label: 'Ay' },
+              ]}
+            />
+          </div>
         </div>
       </header>
 
