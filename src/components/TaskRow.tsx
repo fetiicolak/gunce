@@ -1,3 +1,4 @@
+import { playDone } from '../lib/sound'
 import { askConfirm } from './ConfirmDialog'
 import { useRef, useState } from 'react'
 import { Bell, CalendarDays, Repeat, Star, StickyNote, Sun, Trash2 } from 'lucide-react'
@@ -85,7 +86,10 @@ export default function TaskRow({
       >
         {handle}
         {item.kind === 'task' ? (
-          <Checkbox checked={done} onChange={() => toggleComplete(item.id)} color={color} disabled={virtual} />
+          <Checkbox checked={done} onChange={() => {
+            if (!done) playDone()
+            toggleComplete(item.id)
+          }} color={color} disabled={virtual} />
         ) : (
           <span
             className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"

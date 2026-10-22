@@ -1,10 +1,11 @@
 import { Fragment, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Bell, CalendarCheck, CalendarDays, CircleCheckBig, Home, List as ListIcon, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
+import { Bell, CalendarCheck, CalendarDays, CircleCheckBig, Home, List as ListIcon, PanelLeftClose, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
 import { createList, useStore } from '../lib/store'
 import { useCounts, useLists } from '../lib/selectors'
 import { LIST_COLORS } from '../lib/types'
 import { cx, IconButton, Logo } from './ui'
+import { setNavOpen } from '../lib/ui'
 import { useNavigate } from 'react-router-dom'
 
 export default function NavContent({ mobile }: { mobile?: boolean }) {
@@ -61,6 +62,11 @@ export default function NavContent({ mobile }: { mobile?: boolean }) {
         <IconButton title="Ayarlar" onClick={() => navigate('/ayarlar')}>
           <Settings className="h-4.5 w-4.5" />
         </IconButton>
+        {!mobile && (
+          <IconButton title="Menüyü kapat" aria-label="Menüyü kapat" onClick={() => setNavOpen(false)}>
+            <PanelLeftClose className="h-4.5 w-4.5" />
+          </IconButton>
+        )}
       </div>
 
       <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-4">

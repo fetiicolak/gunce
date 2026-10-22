@@ -1,3 +1,4 @@
+import { playDone } from '../lib/sound'
 import { askConfirm } from './ConfirmDialog'
 import { useEffect, useState } from 'react'
 import {
@@ -93,7 +94,10 @@ function Detail({ item, onClose, isDesktop }: { item: Item; onClose: () => void;
           <div className="flex items-start gap-3 px-4 pb-2 pt-4">
             <div className="pt-1">
               {item.kind === 'task' ? (
-                <Checkbox checked={done} onChange={() => toggleComplete(item.id)} color={color} size={24} />
+                <Checkbox checked={done} onChange={() => {
+            if (!done) playDone()
+            toggleComplete(item.id)
+          }} color={color} size={24} />
               ) : (
                 <Bell className="h-6 w-6" style={{ color }} />
               )}

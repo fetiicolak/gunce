@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { CalendarDays, List as ListIcon, Search, Sun } from 'lucide-react'
+import { CalendarDays, List as ListIcon, PanelLeftOpen, Search, Sun } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useUi } from '../lib/ui'
+import { setNavOpen, useUi } from '../lib/ui'
 import NavContent from './NavContent'
 import ItemDetail from './ItemDetail'
 import { cx, useIsDesktop } from './ui'
@@ -32,15 +32,28 @@ export default function Shell() {
   useAppBadge()
   const typing = useTyping()
   const adding = useUi((s) => s.adding)
+  const navOpen = useUi((s) => s.navOpen)
+  const showNav = isDesktop && navOpen
 
   return (
     <div className="flex h-full">
-      {isDesktop && (
+      {showNav && (
         <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface">
           <NavContent />
         </aside>
       )}
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className={cx('relative flex min-w-0 flex-1 flex-col', isDesktop && !navOpen && 'pl-10')}>
+        {/* Sol menü kapalıyken açma düğmesi */}
+        {isDesktop && !navOpen && (
+          <button
+            onClick={() => setNavOpen(true)}
+            aria-label="Menüyü aç"
+            title="Menüyü aç"
+            className="pt-safe absolute left-2 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink md:top-7"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
+        )}
         <Routes>
           <Route path="/" element={<Navigate to="/gunum" replace />} />
           <Route path="/listeler" element={isDesktop ? <Navigate to="/gunum" replace /> : <MobileHome />} />
