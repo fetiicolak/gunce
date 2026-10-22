@@ -22,7 +22,25 @@ export default defineConfig({
       filename: 'sw.ts',
       registerType: 'autoUpdate',
       injectRegister: false,
-      injectManifest: { globPatterns: ['**/*.{js,css,html,svg,png,woff2,mp3}'] },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mp3}'],
+        // Eklenti service worker'ı eski `inlineDynamicImports` ayarıyla derliyor; Vite 8 (Rolldown) bunu
+        // kullanımdan kaldırdı. Aynı anlamdaki `codeSplitting: false` ile değiştir ki derleme uyarısı çıkmasın.
+        buildPlugins: {
+          vite: [
+            {
+              name: 'sw-code-splitting',
+              config(c) {
+                const out = c.build?.rollupOptions?.output as Record<string, unknown> | undefined
+                if (out && !Array.isArray(out) && 'inlineDynamicImports' in out) {
+                  delete out.inlineDynamicImports
+                  out.codeSplitting = false
+                }
+              },
+            },
+          ],
+        },
+      },
       manifest: {
         name: 'Günce',
         short_name: 'Günce',
