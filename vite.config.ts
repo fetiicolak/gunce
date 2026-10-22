@@ -10,6 +10,21 @@ const base = process.env.VITE_BASE ?? '/gunce/'
 export default defineConfig({
   base,
   define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0') },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Kütüphaneleri ayrı dosyalara böl: tek 600+ kB'lık dosya yerine paralel ve ayrı önbelleklenen parçalar
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\/](react|react-dom|react-router|react-router-dom|scheduler)[\/]/ },
+            { name: 'supabase', test: /node_modules[\/]@supabase[\/]/ },
+            { name: 'dnd', test: /node_modules[\/]@dnd-kit[\/]/ },
+            { name: 'vendor', test: /node_modules[\/]/ },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: { '@shared': fileURLToPath(new URL('./supabase/functions/_shared', import.meta.url)) },
   },
