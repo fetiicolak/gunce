@@ -1,7 +1,7 @@
 import { askConfirm } from '../components/ConfirmDialog'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, ChevronLeft, PartyPopper, Clock, Globe, LogOut, Moon, RefreshCw, Share, Smartphone, Trash2 } from 'lucide-react'
+import { Bell, ChevronLeft, PartyPopper, Volume1, Volume2, Clock, Globe, LogOut, Moon, RefreshCw, Share, Smartphone, Trash2 } from 'lucide-react'
 import { IconButton, inputCls, Segmented, cx } from '../components/ui'
 import { flush, pull, updateSettings, useSettings, useStore } from '../lib/store'
 import {
@@ -14,7 +14,7 @@ import {
   sendTestNotification,
 } from '../lib/push'
 import { supabase } from '../lib/supabase'
-import { playDone, setSoundEnabled, soundEnabled } from '../lib/sound'
+import { playDone, setSoundEnabled, setSoundVolume, soundEnabled, soundVolume } from '../lib/sound'
 
 type Theme = 'system' | 'light' | 'dark'
 
@@ -151,7 +151,9 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 /** Görev tamamlanınca çalan "ta-da" sesini aç/kapat (bu cihaz için). Açınca örnek olarak bir kez çalar. */
 function SoundRow() {
   const [on, setOn] = useState(soundEnabled)
+  const [volume, setVolume] = useState(() => Math.round(soundVolume() * 100))
   return (
+    <>
     <Row icon={<PartyPopper className="h-5 w-5" />} title="Başarı sesi" hint="Görev tamamlayınca kısa bir ses çalar.">
       <Segmented
         value={on ? 'on' : 'off'}
@@ -167,6 +169,31 @@ function SoundRow() {
         ]}
       />
     </Row>
+    {on && (
+      <Row icon={<Volume2 className="h-5 w-5" />} title="Ses yüksekliği" hint={`%${volume}`}>
+        <div className="flex items-center gap-2">
+          <Volume1 className="h-4 w-4 text-muted" />
+          <input
+            type="range"
+            min={5}
+            max={100}
+            step={5}
+            value={volume}
+            aria-label="Ses yüksekliği"
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              setVolume(v)
+              setSoundVolume(v / 100)
+            }}
+            // Bırakınca yeni seviyeyi duyabilmek için örnek çal
+            onPointerUp={() => playDone(true)}
+            onKeyUp={() => playDone(true)}
+            className="w-32 cursor-pointer accent-accent"
+          />
+        </div>
+      </Row>
+    )}
+    </>
   )
 }
 
