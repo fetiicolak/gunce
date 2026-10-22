@@ -1,7 +1,7 @@
 import { askConfirm } from '../components/ConfirmDialog'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, ChevronLeft, Clock, Globe, LogOut, Moon, RefreshCw, Share, Smartphone, Trash2 } from 'lucide-react'
+import { Bell, ChevronLeft, PartyPopper, Clock, Globe, LogOut, Moon, RefreshCw, Share, Smartphone, Trash2 } from 'lucide-react'
 import { IconButton, inputCls, Segmented, cx } from '../components/ui'
 import { flush, pull, updateSettings, useSettings, useStore } from '../lib/store'
 import {
@@ -14,6 +14,7 @@ import {
   sendTestNotification,
 } from '../lib/push'
 import { supabase } from '../lib/supabase'
+import { playDone, setSoundEnabled, soundEnabled } from '../lib/sound'
 
 type Theme = 'system' | 'light' | 'dark'
 
@@ -115,6 +116,7 @@ export default function SettingsPage() {
                 ]}
               />
             </Row>
+            <SoundRow />
           </Card>
 
           <SyncCard />
@@ -143,6 +145,28 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{title}</h2>
       <div className="divide-y divide-line rounded-xl bg-surface">{children}</div>
     </section>
+  )
+}
+
+/** Görev tamamlanınca çalan "ta-da" sesini aç/kapat (bu cihaz için). Açınca örnek olarak bir kez çalar. */
+function SoundRow() {
+  const [on, setOn] = useState(soundEnabled)
+  return (
+    <Row icon={<PartyPopper className="h-5 w-5" />} title="Başarı sesi" hint="Görev tamamlayınca kısa bir ses çalar.">
+      <Segmented
+        value={on ? 'on' : 'off'}
+        onChange={(v) => {
+          const next = v === 'on'
+          setOn(next)
+          setSoundEnabled(next)
+          if (next) playDone(true)
+        }}
+        options={[
+          { value: 'on', label: 'Açık' },
+          { value: 'off', label: 'Kapalı' },
+        ]}
+      />
+    </Row>
   )
 }
 
