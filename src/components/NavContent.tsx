@@ -74,7 +74,7 @@ export default function NavContent({ mobile }: { mobile?: boolean }) {
         {row('/onemli', <Star className="h-5 w-5" />, 'Önemli', counts.onemli, '#c9408a')}
         {row('/planlanan', <CalendarCheck className="h-5 w-5" />, 'Planlanan görevler', counts.planlanan, '#2f9a5b')}
         {row('/tamamlanan', <CircleCheckBig className="h-5 w-5" />, 'Tamamlananlar', undefined, '#6b7280')}
-        {!mobile && row('/takvim', <CalendarDays className="h-5 w-5" />, 'Hatırlatma ve Görev Takvimi', undefined, '#1f8f98')}
+        {row('/takvim', <CalendarDays className="h-5 w-5" />, 'Hatırlatma ve Görev Takvimi', undefined, '#1f8f98')}
         {row('/harcama-plani', <Wallet className="h-5 w-5" />, 'Harcama Planı', undefined, '#0f8f6a')}
         {row('/aylik-plan', <CalendarRange className="h-5 w-5" />, 'Aylık Plan', undefined, '#7c4dcc')}
 

@@ -1,6 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarRange, ChevronDown, ChevronLeft, Filter, MapPin, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { CalendarRange, CalendarSearch, ChevronDown, ChevronLeft, Filter, MapPin, Maximize2, Minimize2, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { addDays, addMonths, daysInMonth } from '@shared/schedule.ts'
 import { monthOf } from '@shared/plans.ts'
 import { askConfirm } from '../components/ConfirmDialog'
@@ -174,6 +174,9 @@ export default function MonthPlanPage() {
   )
 }
 
+/** Gün adları başlığının yüksekliği (yapışkan; aya kaydırırken altında kalmasın) */
+const HEAD_H = 30
+
 /** Haftaların alt alta dizildiği, aylar arasında kesintisiz kaydırılan takvim. */
 function ScrollGrid({
   byDay,
@@ -201,6 +204,17 @@ function ScrollGrid({
     const m = target.month
     return { start: startOfWeek(monthStart(addMonths(monthStart(m), -6).slice(0, 7))), end: addDays(startOfWeek(addMonths(monthStart(m), 13)), 6) }
   })
+  // Satır yüksekliği: bir ayın en fazla 6 haftası pencereye tam sığsın
+  const [rowH, setRowH] = useState(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setRowH(Math.max(isDesktop ? 72 : 56, Math.floor((el.clientHeight - HEAD_H - 8) / 6)))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [isDesktop])
   const weeks = useMemo(() => {
     const out: string[] = []
     for (let w = span.start; w <= span.end; w = addDays(w, 7)) out.push(w)
@@ -227,9 +241,9 @@ function ScrollGrid({
       return
     }
     const row = rows.current.get(first)
-    if (el && row) el.scrollTo({ top: row.offsetTop - 30, behavior: target.n ? 'smooth' : 'auto' })
+    if (el && row) el.scrollTo({ top: row.offsetTop - HEAD_H, behavior: target.n ? 'smooth' : 'auto' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, weeks])
+  }, [target, weeks, rowH])
 
   const onScroll = () => {
     const el = box.current
@@ -248,15 +262,16 @@ function ScrollGrid({
     else if (el.scrollHeight - el.scrollTop - el.clientHeight < 600) setSpan((s) => ({ ...s, end: addDays(s.end, 7 * 26) }))
   }
 
-  const max = isDesktop ? 4 : 3
+  // Hücreye sığan etkinlik sayısı (gün numarası ~26px, her satır ~18px)
+  const max = Math.max(1, Math.floor((rowH - 30) / (isDesktop ? 20 : 16)))
   const inRange = (d: string) => !!range && d >= range[0] && d <= range[1]
 
   return (
-    <div ref={box} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 md:px-8">
+    <div ref={box} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto px-2 pb-4 md:px-8">
       <div className="mx-auto max-w-5xl">
         <div className="sticky top-0 z-10 grid grid-cols-7 rounded-t-xl border border-line bg-surface-2 text-center text-xs font-medium text-muted">
           {WEEKDAYS_SHORT.map((w) => (
-            <div key={w} className="py-1.5">
+            <div key={w} className="flex items-center justify-center" style={{ height: HEAD_H }}>
               {w}
             </div>
           ))}
@@ -270,12 +285,14 @@ function ScrollGrid({
                 else rows.current.delete(w)
               }}
               className="grid grid-cols-7"
+              style={rowH ? { height: rowH } : undefined}
             >
               {Array.from({ length: 7 }, (_, i) => {
                 const d = addDays(w, i)
                 const m = monthOf(d)
                 const day = Number(d.slice(8))
                 const events = byDay.get(d) ?? []
+                const fit = events.length > max ? max - 1 : max
                 // Aylar dönüşümlü zeminle ayrılır; ayın ilk haftası üstte çizgiyle başlar
                 const odd = Number(m.slice(5, 7)) % 2 === 1
                 return (
@@ -288,7 +305,7 @@ function ScrollGrid({
                     onKeyDown={(e) => e.key === 'Enter' && onDayClick(d, e.shiftKey)}
                     aria-label={fmt(d, 'd MMMM EEEE')}
                     className={cx(
-                      'flex min-h-20 min-w-0 select-none flex-col gap-0.5 border-line p-1 transition-colors md:min-h-28 md:p-1.5',
+                      'flex min-h-0 min-w-0 select-none flex-col gap-0.5 overflow-hidden border-line p-1 transition-colors md:p-1.5',
                       i !== 6 && 'border-r',
                       'border-b',
                       day <= 7 && 'border-t-2 border-t-[color:var(--c-month)]',
@@ -313,7 +330,7 @@ function ScrollGrid({
                         </span>
                       )}
                     </span>
-                    {events.slice(0, max).map((ev) => (
+                    {events.slice(0, fit).map((ev) => (
                       <span
                         key={ev.id}
                         className="truncate rounded px-1 py-px text-[10px] leading-tight md:text-xs"
@@ -324,7 +341,7 @@ function ScrollGrid({
                         {ev.title}
                       </span>
                     ))}
-                    {events.length > max && <span className="px-1 text-[10px] text-muted md:text-xs">+{events.length - max}</span>}
+                    {events.length > fit && <span className="px-1 text-[10px] leading-tight text-muted md:text-xs">+{events.length - fit}</span>}
                   </div>
                 )
               })}
@@ -363,6 +380,8 @@ function PlanPanel({
   wide: boolean
 }) {
   const [filterOpen, setFilterOpen] = useState(false)
+  const [dateOpen, setDateOpen] = useState(false)
+  const [full, setFull] = useState(false)
   const [query, setQuery] = useState('')
   const [a, b] = range
 
@@ -414,45 +433,58 @@ function PlanPanel({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 pt-3 md:px-8 lg:w-96 lg:flex-none lg:border-l lg:border-line lg:px-4">
+      <div className="flex items-center gap-2">
+        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{label}</h2>
+        <IconButton onClick={() => setFull(true)} aria-label="Tam ekranda görüntüle" title="Tam ekranda görüntüle" className="h-8 w-8">
+          <Maximize2 className="h-4 w-4" />
+        </IconButton>
+      </div>
+
       {/* Tarih filtresi */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{label}</h2>
-          {explicit && (
-            <button onClick={() => onRange(null)} className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink" title="Görünen aya dön">
-              <X className="h-4 w-4" /> Temizle
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {quick.map(([name, x, y]) => (
-            <button
-              key={name}
-              onClick={() => onRange(x, y)}
-              className={cx(chipCls, explicit && a === x && b === y && 'border-accent bg-accent-soft text-accent')}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Başlangıç">
-            <DateInput value={a} onChange={(v) => onRange(v, v > b ? v : b)} className={inputCls} aria-label="Başlangıç tarihi" />
-          </Field>
-          <Field label="Bitiş">
-            <DateInput value={b} onChange={(v) => (v < a ? onRange(v, a) : onRange(a, v))} className={inputCls} aria-label="Bitiş tarihi" />
-          </Field>
-        </div>
-        {!explicit && (
-          <p className="text-xs text-muted">
-            Görünen ay ({fmt(monthStart(focused), 'MMMM')}).{' '}
-            {wide ? 'Takvimde bir güne tıkla, Shift ile tıklayarak aralık seç; çift tıkla etkinlik ekle.' : 'Hızlı seçimlerle ya da tarih alanlarıyla aralık seç.'}
-          </p>
+      <div className="mt-2 rounded-lg border border-line">
+        <button onClick={() => setDateOpen(!dateOpen)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium">
+          <CalendarSearch className="h-4 w-4 text-muted" />
+          <span className="flex-1">Tarihe göre filtrele</span>
+          {explicit && <span className="rounded-full bg-accent-soft px-2 text-xs text-accent">Seçili</span>}
+          <ChevronDown className={cx('h-4 w-4 text-muted transition-transform', dateOpen && 'rotate-180')} />
+        </button>
+        {dateOpen && (
+          <div className="flex flex-col gap-2 border-t border-line p-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {quick.map(([name, x, y]) => (
+                <button
+                  key={name}
+                  onClick={() => onRange(x, y)}
+                  className={cx(chipCls, explicit && a === x && b === y && 'border-accent bg-accent-soft text-accent')}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Başlangıç">
+                <DateInput value={a} onChange={(v) => onRange(v, v > b ? v : b)} className={inputCls} aria-label="Başlangıç tarihi" />
+              </Field>
+              <Field label="Bitiş">
+                <DateInput value={b} onChange={(v) => (v < a ? onRange(v, a) : onRange(a, v))} className={inputCls} aria-label="Bitiş tarihi" />
+              </Field>
+            </div>
+            {explicit ? (
+              <button onClick={() => onRange(null)} className="inline-flex items-center gap-1 self-start text-sm text-accent">
+                <X className="h-4 w-4" /> Filtreyi temizle (görünen aya dön)
+              </button>
+            ) : (
+              <p className="text-xs text-muted">
+                Şu an görünen ay ({fmt(monthStart(focused), 'MMMM')}).{' '}
+                {wide ? 'Takvimde bir güne tıkla, Shift ile tıklayarak aralık seç; çift tıkla etkinlik ekle.' : 'Hızlı seçimlerle ya da tarih alanlarıyla aralık seç.'}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
       {/* Plan filtresi */}
-      <div className="mt-3 rounded-lg border border-line">
+      <div className="mt-2 rounded-lg border border-line">
         <button onClick={() => setFilterOpen(!filterOpen)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium">
           <Filter className="h-4 w-4 text-muted" />
           <span className="flex-1">Planları filtrele</span>
@@ -498,38 +530,111 @@ function PlanPanel({
           <Plus className="h-4 w-4" /> Etkinlik ekle
         </button>
       </div>
-      <div className="mt-2 flex flex-col gap-3">
-        {groups.map(([date, list]) => (
-          <div key={date} className="flex flex-col gap-1.5">
-            <div className="flex items-baseline gap-2 px-1 text-sm font-semibold">
-              {fmt(date, 'd MMMM EEEE')}
-              {/* Sadece "Bugün/Yarın/Dün" gibi kısa ifade; tarih zaten başlıkta */}
-              {!/\d/.test(relativeDay(date, today)) && <span className="text-xs font-normal text-accent">{relativeDay(date, today)}</span>}
-            </div>
-            {list.map((ev) => (
-              <button
-                key={ev.id}
-                onClick={() => onOpenDay(date)}
-                className="flex flex-col gap-0.5 rounded-lg border-l-[3px] bg-surface px-3 py-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:bg-surface-2"
-                style={{ borderLeftColor: PLAN_COLOR }}
-              >
-                <span className="break-words">
-                  {ev.time && <span className="mr-1.5 font-medium" style={{ color: PLAN_COLOR }}>{ev.time}</span>}
-                  {ev.title}
-                </span>
-                {ev.location && (
-                  <span className="flex items-center gap-1 text-sm text-muted">
-                    <MapPin className="h-3.5 w-3.5 shrink-0" />
-                    {ev.location}
-                  </span>
-                )}
-                {ev.note && <span className="line-clamp-2 whitespace-pre-wrap text-sm text-muted">{ev.note}</span>}
-              </button>
-            ))}
-          </div>
-        ))}
+      <div className="mt-2">
+        <EventGroups groups={groups} today={today} onOpenDay={onOpenDay} />
       </div>
+
+      {full && (
+        <FullEvents label={label} count={shown.length} onClose={() => setFull(false)} onAdd={() => onOpenDay(a >= today || a === b ? a : today, true)}>
+          <EventGroups groups={groups} today={today} onOpenDay={onOpenDay} columns />
+        </FullEvents>
+      )}
     </section>
+  )
+}
+
+/** Günlere göre gruplanmış etkinlik listesi (panelde ve tam ekranda). */
+function EventGroups({
+  groups,
+  today,
+  onOpenDay,
+  columns,
+}: {
+  groups: [string, PlanEvent[]][]
+  today: string
+  onOpenDay: (d: string, startNew?: boolean) => void
+  columns?: boolean
+}) {
+  return (
+    <div className={columns ? 'gap-4 sm:columns-2 xl:columns-3 2xl:columns-4' : 'flex flex-col gap-3'}>
+      {groups.map(([date, list]) => (
+        <div key={date} className={cx('flex flex-col gap-1.5', columns && 'mb-4 break-inside-avoid')}>
+          <div className="flex items-baseline gap-2 px-1 text-sm font-semibold">
+            {fmt(date, 'd MMMM EEEE')}
+            {/* Sadece "Bugün/Yarın/Dün" gibi kısa ifade; tarih zaten başlıkta */}
+            {!/\d/.test(relativeDay(date, today)) && <span className="text-xs font-normal text-accent">{relativeDay(date, today)}</span>}
+          </div>
+          {list.map((ev) => (
+            <button
+              key={ev.id}
+              onClick={() => onOpenDay(date)}
+              className="flex w-full flex-col gap-0.5 rounded-lg border-l-[3px] bg-surface px-3 py-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:bg-surface-2"
+              style={{ borderLeftColor: PLAN_COLOR }}
+            >
+              <span className="break-words">
+                {ev.time && <span className="mr-1.5 font-medium" style={{ color: PLAN_COLOR }}>{ev.time}</span>}
+                {ev.title}
+              </span>
+              {ev.location && (
+                <span className="flex items-center gap-1 text-sm text-muted">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {ev.location}
+                </span>
+              )}
+              {ev.note && <span className={cx('whitespace-pre-wrap text-sm text-muted', !columns && 'line-clamp-2')}>{ev.note}</span>}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Seçilen aralığın etkinliklerini tüm ekranı kaplayan görünümde gösterir. Gün penceresi (Modal, z-40) bunun üstünde açılır. */
+function FullEvents({
+  label,
+  count,
+  onClose,
+  onAdd,
+  children,
+}: {
+  label: string
+  count: number
+  onClose: () => void
+  onAdd: () => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Üstte bir pencere açıksa Esc önce onu kapatsın
+      if (e.key === 'Escape' && !document.querySelector('.z-40, .z-50')) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-30 flex flex-col bg-bg" role="dialog" aria-label={label + ' etkinlikleri'}>
+      <header className="pt-safe shrink-0 border-b border-line px-4 md:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 py-3">
+          <CalendarRange className="h-6 w-6 shrink-0" style={{ color: PLAN_COLOR }} />
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-xl font-bold tracking-tight md:text-2xl">{label}</h2>
+            <div className="text-sm text-muted">{count ? count + ' etkinlik' : 'Etkinlik yok'}</div>
+          </div>
+          <button onClick={onAdd} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-accent hover:bg-surface-2">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Etkinlik ekle</span>
+          </button>
+          <IconButton onClick={onClose} aria-label="Tam ekrandan çık" title="Tam ekrandan çık">
+            <Minimize2 className="h-5 w-5" />
+          </IconButton>
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-8">
+        <div className="mx-auto max-w-7xl pb-8">
+          {count ? children : <div className="py-16 text-center text-muted">Bu aralıkta etkinlik yok.</div>}
+        </div>
+      </div>
+    </div>
   )
 }
 
