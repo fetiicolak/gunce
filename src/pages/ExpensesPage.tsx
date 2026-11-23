@@ -5,7 +5,7 @@ import { monthOf, sameDayIn } from '@shared/plans.ts'
 import { askConfirm } from '../components/ConfirmDialog'
 import Modal from '../components/Modal'
 import MonthNav from '../components/MonthNav'
-import { Checkbox, cx, IconButton, inputCls, useIsDesktop } from '../components/ui'
+import { Checkbox, cx, DateInput, IconButton, inputCls, useIsDesktop } from '../components/ui'
 import { fmt } from '../lib/dates'
 import { playDone } from '../lib/sound'
 import { createExpense, deleteExpense, ensureRecurringExpenses, updateExpense, useStore } from '../lib/store'
@@ -199,7 +199,7 @@ function ExpenseForm({ expense, defaultDate, onClose }: { expense: Expense | nul
             />
           </Field>
           <Field label="Ödeme günü">
-            <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className={inputCls} />
+            <DateInput value={date} onChange={setDate} className={inputCls} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-[15px]">
@@ -219,7 +219,7 @@ function ExpenseForm({ expense, defaultDate, onClose }: { expense: Expense | nul
           </label>
           {paidOn && (
             <Field label="Para hangi gün çıktı?">
-              <input type="date" value={paidOn} onChange={(e) => e.target.value && setPaidOn(e.target.value)} className={inputCls} />
+              <DateInput value={paidOn} onChange={setPaidOn} className={inputCls} />
             </Field>
           )}
         </div>

@@ -6,7 +6,7 @@ import { monthOf } from '@shared/plans.ts'
 import { askConfirm } from '../components/ConfirmDialog'
 import Modal from '../components/Modal'
 import MonthNav from '../components/MonthNav'
-import { chipCls, cx, IconButton, inputCls, Segmented, useIsDesktop, useMediaQuery } from '../components/ui'
+import { chipCls, cx, DateInput, IconButton, inputCls, Segmented, useIsDesktop, useMediaQuery } from '../components/ui'
 import { fmt, relativeDay, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import { createEvent, deleteEvent, updateEvent, useStore } from '../lib/store'
 import type { PlanEvent } from '../lib/types'
@@ -437,10 +437,10 @@ function PlanPanel({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Başlangıç">
-            <input type="date" value={a} onChange={(e) => e.target.value && onRange(e.target.value, e.target.value > b ? e.target.value : b)} className={inputCls} />
+            <DateInput value={a} onChange={(v) => onRange(v, v > b ? v : b)} className={inputCls} aria-label="Başlangıç tarihi" />
           </Field>
           <Field label="Bitiş">
-            <input type="date" value={b} min={a} onChange={(e) => e.target.value && onRange(a, e.target.value)} className={inputCls} />
+            <DateInput value={b} onChange={(v) => (v < a ? onRange(v, a) : onRange(a, v))} className={inputCls} aria-label="Bitiş tarihi" />
           </Field>
         </div>
         {!explicit && (
@@ -611,7 +611,7 @@ function EventForm({ date, event, onDone }: { date: string; event?: PlanEvent; o
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputCls} />
         </Field>
         <Field label="Gün">
-          <input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className={inputCls} />
+          <DateInput value={day} onChange={setDay} className={inputCls} />
         </Field>
       </div>
       <div className="relative">

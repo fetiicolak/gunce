@@ -1,4 +1,4 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
@@ -120,3 +120,65 @@ export const inputCls =
 
 export const chipCls =
   'inline-flex items-center gap-1 rounded-full border border-line bg-surface px-3 py-1 text-sm text-ink transition-colors hover:border-accent'
+
+/** Seçicinin ve klavyeyle yazmanın başladığı en erken yıl (seçici 0001'den açılmasın) */
+export const MIN_DATE = '2026-01-01'
+export const MAX_DATE = '2100-12-31'
+
+/** Tarih alanı: klavyeyle yazarken yıl tamamlanmadan ("0002-…") değeri dışarı vermez.
+ *  Geçerli tarih (MIN_DATE–MAX_DATE) oluşunca `onChange` çağrılır; yarım kalırsa alandan çıkınca eski değere döner. */
+export function DateInput({
+  value,
+  onChange,
+  min = MIN_DATE,
+  max = MAX_DATE,
+  className,
+  ...rest
+}: {
+  value: string
+  onChange: (v: string) => void
+  min?: string
+  max?: string
+  className?: string
+  'aria-label'?: string
+}) {
+  const [draft, setDraft] = useState(value)
+  const [focused, setFocused] = useState(false)
+  // Dışarıdan değişince (hızlı seçim, takvime tıklama) alanı güncelle; yazarken dokunma
+  useEffect(() => {
+    if (!focused) setDraft(value)
+  }, [value, focused])
+  const valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && v >= min && v <= max
+  // Yazarken ara değerler (ay "1" → Ocak) hemen uygulanmasın: son tuştan kısa süre sonra ya da alandan çıkınca uygula
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const commit = (v: string) => {
+    clearTimeout(timer.current)
+    if (valid(v) && v !== value) onChange(v)
+  }
+  useEffect(() => () => clearTimeout(timer.current), [])
+  return (
+    <input
+      type="date"
+      value={draft}
+      min={min}
+      max={max}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        if (valid(draft)) commit(draft)
+        else setDraft(value)
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && commit(draft)}
+      onChange={(e) => {
+        const v = e.target.value
+        setDraft(v)
+        clearTimeout(timer.current)
+        // Seçiciden seçim (odak yokken) hemen; klavyeyle yazarken 800 ms sonra
+        if (!focused) commit(v)
+        else if (valid(v)) timer.current = setTimeout(() => commit(v), 800)
+      }}
+      className={className}
+      {...rest}
+    />
+  )
+}
