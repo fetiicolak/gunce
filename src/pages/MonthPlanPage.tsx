@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarRange, ChevronLeft, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
-import { addDays } from '@shared/schedule.ts'
+import { CalendarRange, ChevronDown, ChevronLeft, Filter, MapPin, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { addDays, addMonths, daysInMonth } from '@shared/schedule.ts'
 import { monthOf } from '@shared/plans.ts'
 import { askConfirm } from '../components/ConfirmDialog'
 import Modal from '../components/Modal'
 import MonthNav from '../components/MonthNav'
-import { cx, IconButton, inputCls, useIsDesktop } from '../components/ui'
-import { fmt, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
+import { chipCls, cx, IconButton, inputCls, Segmented, useIsDesktop, useMediaQuery } from '../components/ui'
+import { fmt, relativeDay, startOfWeek, WEEKDAYS_SHORT } from '../lib/dates'
 import { createEvent, deleteEvent, updateEvent, useStore } from '../lib/store'
 import type { PlanEvent } from '../lib/types'
 import { useToday } from '../lib/useToday'
@@ -17,41 +17,89 @@ export const PLAN_COLOR = '#7c4dcc'
 
 const byTime = (a: PlanEvent, b: PlanEvent) => (a.time ?? '99').localeCompare(b.time ?? '99') || a.created_at.localeCompare(b.created_at)
 
+/** Plan filtresi aynı adlı etkinlikleri birlikte gizler/gösterir ("Spor", "spor " aynı plan sayılır). */
+const planKey = (title: string) => title.trim().toLocaleLowerCase('tr')
+
+const HIDDEN_KEY = 'gunce-plan-hidden'
+function readHidden(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? '[]') as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+const monthStart = (m: string) => `${m}-01`
+const monthEnd = (m: string) => `${m}-${String(daysInMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)))).padStart(2, '0')}`
+
 export default function MonthPlanPage() {
   const today = useToday()
   const current = monthOf(today)
   const [params, setParams] = useSearchParams()
-  const month = params.get('ay') ?? current
-  const setMonth = (m: string) => setParams(m === current ? {} : { ay: m }, { replace: true })
   const all = useStore((s) => s.events)
   const isDesktop = useIsDesktop()
+  const wide = useMediaQuery('(min-width: 1024px)')
   const navigate = useNavigate()
-  const [openDay, setOpenDay] = useState<string | null>(null)
 
-  // Ayın görünen haftaları (Pazartesi'den başlayan, 5 ya da 6 satır)
-  const days = useMemo(() => {
-    const start = startOfWeek(`${month}-01`)
-    const out: string[] = []
-    for (let d = start; out.length < 42; d = addDays(d, 1)) {
-      if (out.length % 7 === 0 && out.length >= 28 && monthOf(d) !== month) break
-      out.push(d)
+  // Görünen ay kaydırdıkça değişir; okla/bildirimden gelen ?ay= ile o aya kaydırılır
+  const [focused, setFocused] = useState(params.get('ay') ?? current)
+  const [scrollTarget, setScrollTarget] = useState<{ month: string; n: number }>({ month: params.get('ay') ?? current, n: 0 })
+  const goMonth = (m: string) => setScrollTarget((t) => ({ month: m, n: t.n + 1 }))
+
+  // Tarih filtresi: seçilmediyse görünen ay
+  const from = params.get('bas')
+  const to = params.get('bit') ?? from
+  const range = from && to ? (from <= to ? [from, to] : [to, from]) : [monthStart(focused), monthEnd(focused)]
+  const setRange = (a: string | null, b?: string | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('ay')
+        if (a) next.set('bas', a)
+        else next.delete('bas')
+        if (a && b && b !== a) next.set('bit', b)
+        else next.delete('bit')
+        return next
+      },
+      { replace: true },
+    )
+
+  // Plan filtresi: gizlenen planlar (bu cihazda hatırlanır)
+  const [hidden, setHiddenState] = useState(readHidden)
+  const setHidden = (h: Set<string>) => {
+    setHiddenState(h)
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify([...h]))
+    } catch {
+      /* depolama kapalı olabilir */
     }
-    return out
-  }, [month])
+  }
 
+  const [view, setView] = useState<'tablo' | 'liste'>('tablo')
+  const [dayModal, setDayModal] = useState<{ date: string; startNew?: boolean } | null>(null)
+
+  const events = useMemo(() => Object.values(all).filter((e) => !e.deleted_at), [all])
+  const visible = useMemo(() => events.filter((e) => !hidden.has(planKey(e.title))), [events, hidden])
   const byDay = useMemo(() => {
     const map = new Map<string, PlanEvent[]>()
-    for (const ev of Object.values(all)) {
-      if (ev.deleted_at) continue
+    for (const ev of visible) {
       const list = map.get(ev.date) ?? []
       list.push(ev)
       map.set(ev.date, list)
     }
     for (const list of map.values()) list.sort(byTime)
     return map
-  }, [all])
+  }, [visible])
 
-  const monthCount = days.filter((d) => monthOf(d) === month).reduce((n, d) => n + (byDay.get(d)?.length ?? 0), 0)
+  const openDay = (date: string, startNew?: boolean) => setDayModal({ date, startNew })
+  const onDayClick = (d: string, shift: boolean) => {
+    if (!wide && view === 'tablo') return openDay(d)
+    if (shift && from) setRange(from, d)
+    else setRange(d)
+  }
+
+  const showGrid = wide || view === 'tablo'
+  const showPanel = wide || view === 'liste'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -66,78 +114,428 @@ export default function MonthPlanPage() {
             <CalendarRange className="h-6 w-6" />
             <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">Aylık Plan</h1>
           </div>
-          <MonthNav month={month} current={current} onChange={setMonth} />
-        </div>
-        <div className="mt-1 text-sm text-muted">
-          {monthCount ? `Bu ay ${monthCount} etkinlik` : 'Bir güne dokunup etkinlik yaz.'}
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2 sm:flex-none">
+            <MonthNav month={focused} current={current} onChange={goMonth} />
+            {!wide && (
+              <Segmented
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'tablo', label: 'Tablo' },
+                  { value: 'liste', label: 'Liste' },
+                ]}
+              />
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-3 md:px-8">
-        <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-line bg-surface">
-          <div className="grid grid-cols-7 border-b border-line bg-surface-2 text-center text-xs font-medium text-muted">
-            {WEEKDAYS_SHORT.map((w) => (
-              <div key={w} className="py-1.5">
-                {w}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {days.map((d, i) => {
-              const inMonth = monthOf(d) === month
-              const events = byDay.get(d) ?? []
-              const max = isDesktop ? 4 : 3
-              return (
-                <div
-                  key={d}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setOpenDay(d)}
-                  onKeyDown={(e) => e.key === 'Enter' && setOpenDay(d)}
-                  aria-label={fmt(d, 'd MMMM EEEE')}
-                  className={cx(
-                    'flex min-h-20 min-w-0 flex-col gap-0.5 border-line p-1 transition-colors hover:bg-surface-2 md:min-h-28 md:p-1.5',
-                    i % 7 !== 6 && 'border-r',
-                    i < days.length - 7 && 'border-b',
-                    !inMonth && 'bg-surface-2/50 opacity-50',
-                  )}
-                >
-                  <span
-                    className={cx(
-                      'flex h-6 w-6 items-center justify-center self-start rounded-full text-xs font-medium',
-                      d === today ? 'text-white' : 'text-ink',
-                    )}
-                    style={d === today ? { background: PLAN_COLOR } : undefined}
-                  >
-                    {Number(d.slice(8))}
-                  </span>
-                  {events.slice(0, max).map((ev) => (
-                    <span
-                      key={ev.id}
-                      className="truncate rounded px-1 py-px text-[10px] leading-tight md:text-xs"
-                      style={{ background: PLAN_COLOR + '1c', color: PLAN_COLOR }}
-                      title={ev.location ? `${ev.title} · ${ev.location}` : ev.title}
-                    >
-                      {isDesktop && ev.time && <span className="opacity-70">{ev.time} </span>}
-                      {ev.title}
-                    </span>
-                  ))}
-                  {events.length > max && <span className="px-1 text-[10px] text-muted md:text-xs">+{events.length - max}</span>}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {showGrid && (
+          <ScrollGrid
+            byDay={byDay}
+            today={today}
+            range={from ? range : null}
+            focused={focused}
+            onFocus={setFocused}
+            target={scrollTarget}
+            onDayClick={onDayClick}
+            onDayDouble={(d) => openDay(d, true)}
+          />
+        )}
+        {showPanel && (
+          <PlanPanel
+            events={events}
+            visible={visible}
+            range={range}
+            explicit={!!from}
+            focused={focused}
+            today={today}
+            hidden={hidden}
+            onHidden={setHidden}
+            onRange={setRange}
+            onOpenDay={openDay}
+            wide={wide}
+          />
+        )}
       </div>
 
-      {openDay && <DayEvents date={openDay} events={byDay.get(openDay) ?? []} onClose={() => setOpenDay(null)} />}
+      {dayModal && (
+        <DayEvents
+          date={dayModal.date}
+          events={(byDay.get(dayModal.date) ?? []).concat(
+            events.filter((e) => e.date === dayModal.date && hidden.has(planKey(e.title))),
+          ).sort(byTime)}
+          startNew={dayModal.startNew}
+          onClose={() => setDayModal(null)}
+        />
+      )}
     </div>
   )
 }
 
+/** Haftaların alt alta dizildiği, aylar arasında kesintisiz kaydırılan takvim. */
+function ScrollGrid({
+  byDay,
+  today,
+  range,
+  focused,
+  onFocus,
+  target,
+  onDayClick,
+  onDayDouble,
+}: {
+  byDay: Map<string, PlanEvent[]>
+  today: string
+  range: string[] | null
+  focused: string
+  onFocus: (m: string) => void
+  target: { month: string; n: number }
+  onDayClick: (d: string, shift: boolean) => void
+  onDayDouble: (d: string) => void
+}) {
+  const isDesktop = useIsDesktop()
+  const box = useRef<HTMLDivElement>(null)
+  const rows = useRef(new Map<string, HTMLDivElement>())
+  const [span, setSpan] = useState(() => {
+    const m = target.month
+    return { start: startOfWeek(monthStart(addMonths(monthStart(m), -6).slice(0, 7))), end: addDays(startOfWeek(addMonths(monthStart(m), 13)), 6) }
+  })
+  const weeks = useMemo(() => {
+    const out: string[] = []
+    for (let w = span.start; w <= span.end; w = addDays(w, 7)) out.push(w)
+    return out
+  }, [span])
+
+  // Başa hafta eklenince içerik aşağı kaymasın
+  const prevStart = useRef(span.start)
+  const prevHeight = useRef(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    if (span.start < prevStart.current) el.scrollTop += el.scrollHeight - prevHeight.current
+    prevStart.current = span.start
+    prevHeight.current = el.scrollHeight
+  }, [span])
+
+  // İstenen aya kaydır (ilk açılış, oklar, "Bu ay")
+  useLayoutEffect(() => {
+    const el = box.current
+    const first = startOfWeek(monthStart(target.month))
+    if (first < span.start || first > span.end) {
+      setSpan((s) => ({ start: first < s.start ? addDays(first, -7 * 26) : s.start, end: first > s.end ? addDays(first, 7 * 30 + 6) : s.end }))
+      return
+    }
+    const row = rows.current.get(first)
+    if (el && row) el.scrollTo({ top: row.offsetTop - 30, behavior: target.n ? 'smooth' : 'auto' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, weeks])
+
+  const onScroll = () => {
+    const el = box.current
+    if (!el) return
+    // Görünen ay: üstten üçte birlik yerdeki haftanın Perşembesi
+    const line = el.scrollTop + el.clientHeight / 3
+    for (const w of weeks) {
+      const row = rows.current.get(w)
+      if (row && row.offsetTop + row.offsetHeight >= line) {
+        const m = monthOf(addDays(w, 3))
+        if (m !== focused) onFocus(m)
+        break
+      }
+    }
+    if (el.scrollTop < 400) setSpan((s) => ({ ...s, start: addDays(s.start, -7 * 26) }))
+    else if (el.scrollHeight - el.scrollTop - el.clientHeight < 600) setSpan((s) => ({ ...s, end: addDays(s.end, 7 * 26) }))
+  }
+
+  const max = isDesktop ? 4 : 3
+  const inRange = (d: string) => !!range && d >= range[0] && d <= range[1]
+
+  return (
+    <div ref={box} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 md:px-8">
+      <div className="mx-auto max-w-5xl">
+        <div className="sticky top-0 z-10 grid grid-cols-7 rounded-t-xl border border-line bg-surface-2 text-center text-xs font-medium text-muted">
+          {WEEKDAYS_SHORT.map((w) => (
+            <div key={w} className="py-1.5">
+              {w}
+            </div>
+          ))}
+        </div>
+        <div className="overflow-hidden rounded-b-xl border-x border-b border-line">
+          {weeks.map((w) => (
+            <div
+              key={w}
+              ref={(el) => {
+                if (el) rows.current.set(w, el)
+                else rows.current.delete(w)
+              }}
+              className="grid grid-cols-7"
+            >
+              {Array.from({ length: 7 }, (_, i) => {
+                const d = addDays(w, i)
+                const m = monthOf(d)
+                const day = Number(d.slice(8))
+                const events = byDay.get(d) ?? []
+                // Aylar dönüşümlü zeminle ayrılır; ayın ilk haftası üstte çizgiyle başlar
+                const odd = Number(m.slice(5, 7)) % 2 === 1
+                return (
+                  <div
+                    key={d}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => onDayClick(d, e.shiftKey)}
+                    onDoubleClick={() => onDayDouble(d)}
+                    onKeyDown={(e) => e.key === 'Enter' && onDayClick(d, e.shiftKey)}
+                    aria-label={fmt(d, 'd MMMM EEEE')}
+                    className={cx(
+                      'flex min-h-20 min-w-0 select-none flex-col gap-0.5 border-line p-1 transition-colors md:min-h-28 md:p-1.5',
+                      i !== 6 && 'border-r',
+                      'border-b',
+                      day <= 7 && 'border-t-2 border-t-[color:var(--c-month)]',
+                      inRange(d) ? 'bg-accent-soft' : odd ? 'bg-surface hover:bg-surface-2' : 'bg-surface-2/60 hover:bg-surface-2',
+                      m !== focused && 'opacity-60',
+                    )}
+                    style={{ ['--c-month' as string]: PLAN_COLOR + '66' }}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span
+                        className={cx(
+                          'flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-medium',
+                          d === today ? 'text-white' : 'text-ink',
+                        )}
+                        style={d === today ? { background: PLAN_COLOR } : undefined}
+                      >
+                        {day}
+                      </span>
+                      {day === 1 && (
+                        <span className="truncate text-[10px] font-semibold uppercase md:text-xs" style={{ color: PLAN_COLOR }}>
+                          {fmt(d, 'MMMM')}
+                        </span>
+                      )}
+                    </span>
+                    {events.slice(0, max).map((ev) => (
+                      <span
+                        key={ev.id}
+                        className="truncate rounded px-1 py-px text-[10px] leading-tight md:text-xs"
+                        style={{ background: PLAN_COLOR + '1c', color: PLAN_COLOR }}
+                        title={ev.location ? `${ev.title} · ${ev.location}` : ev.title}
+                      >
+                        {isDesktop && ev.time && <span className="opacity-70">{ev.time} </span>}
+                        {ev.title}
+                      </span>
+                    ))}
+                    {events.length > max && <span className="px-1 text-[10px] text-muted md:text-xs">+{events.length - max}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Sağdaki pencere: tarih filtresi, plan filtresi ve seçilen aralığın etkinlikleri. */
+function PlanPanel({
+  events,
+  visible,
+  range,
+  explicit,
+  focused,
+  today,
+  hidden,
+  onHidden,
+  onRange,
+  onOpenDay,
+  wide,
+}: {
+  events: PlanEvent[]
+  visible: PlanEvent[]
+  range: string[]
+  explicit: boolean
+  focused: string
+  today: string
+  hidden: Set<string>
+  onHidden: (h: Set<string>) => void
+  onRange: (a: string | null, b?: string | null) => void
+  onOpenDay: (d: string, startNew?: boolean) => void
+  wide: boolean
+}) {
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [a, b] = range
+
+  const shown = useMemo(() => visible.filter((e) => e.date >= a && e.date <= b).sort((x, y) => x.date.localeCompare(y.date) || byTime(x, y)), [visible, a, b])
+  const groups = useMemo(() => {
+    const out: [string, PlanEvent[]][] = []
+    for (const e of shown) {
+      const last = out.at(-1)
+      if (last && last[0] === e.date) last[1].push(e)
+      else out.push([e.date, [e]])
+    }
+    return out
+  }, [shown])
+
+  // Plan filtresi: aralıktaki (ve gizli olan) planlar, adına göre gruplanmış
+  const plans = useMemo(() => {
+    const map = new Map<string, { title: string; count: number }>()
+    for (const e of events) {
+      const k = planKey(e.title)
+      const inside = e.date >= a && e.date <= b
+      if (!inside && !hidden.has(k)) continue
+      const p = map.get(k) ?? { title: e.title.trim(), count: 0 }
+      if (inside) p.count++
+      map.set(k, p)
+    }
+    const q = query.trim().toLocaleLowerCase('tr')
+    return [...map.entries()]
+      .filter(([k]) => !q || k.includes(q))
+      .sort((x, y) => y[1].count - x[1].count || x[1].title.localeCompare(y[1].title, 'tr'))
+  }, [events, a, b, hidden, query])
+
+  const hiddenCount = [...hidden].length
+  const toggle = (k: string) => {
+    const next = new Set(hidden)
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    onHidden(next)
+  }
+
+  const label =
+    a === b ? fmt(a, 'd MMMM EEEE') : monthOf(a) === monthOf(b) && a.endsWith('-01') && b === monthEnd(monthOf(a)) ? fmt(a, 'MMMM yyyy') : `${fmt(a, 'd MMM')} – ${fmt(b, 'd MMM')}`
+  const weekStart = startOfWeek(today)
+  const quick: [string, string, string][] = [
+    ['Bugün', today, today],
+    ['Bu hafta', weekStart, addDays(weekStart, 6)],
+    ['Bu ay', monthStart(monthOf(today)), monthEnd(monthOf(today))],
+    ['30 gün', today, addDays(today, 29)],
+  ]
+
+  return (
+    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 pt-3 md:px-8 lg:w-96 lg:flex-none lg:border-l lg:border-line lg:px-4">
+      {/* Tarih filtresi */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{label}</h2>
+          {explicit && (
+            <button onClick={() => onRange(null)} className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink" title="Görünen aya dön">
+              <X className="h-4 w-4" /> Temizle
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {quick.map(([name, x, y]) => (
+            <button
+              key={name}
+              onClick={() => onRange(x, y)}
+              className={cx(chipCls, explicit && a === x && b === y && 'border-accent bg-accent-soft text-accent')}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Başlangıç">
+            <input type="date" value={a} onChange={(e) => e.target.value && onRange(e.target.value, e.target.value > b ? e.target.value : b)} className={inputCls} />
+          </Field>
+          <Field label="Bitiş">
+            <input type="date" value={b} min={a} onChange={(e) => e.target.value && onRange(a, e.target.value)} className={inputCls} />
+          </Field>
+        </div>
+        {!explicit && (
+          <p className="text-xs text-muted">
+            Görünen ay ({fmt(monthStart(focused), 'MMMM')}).{' '}
+            {wide ? 'Takvimde bir güne tıkla, Shift ile tıklayarak aralık seç; çift tıkla etkinlik ekle.' : 'Hızlı seçimlerle ya da tarih alanlarıyla aralık seç.'}
+          </p>
+        )}
+      </div>
+
+      {/* Plan filtresi */}
+      <div className="mt-3 rounded-lg border border-line">
+        <button onClick={() => setFilterOpen(!filterOpen)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium">
+          <Filter className="h-4 w-4 text-muted" />
+          <span className="flex-1">Planları filtrele</span>
+          {hiddenCount > 0 && <span className="rounded-full bg-accent-soft px-2 text-xs text-accent">{hiddenCount} gizli</span>}
+          <ChevronDown className={cx('h-4 w-4 text-muted transition-transform', filterOpen && 'rotate-180')} />
+        </button>
+        {filterOpen && (
+          <div className="flex flex-col gap-2 border-t border-line p-2.5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Plan ara" className={cx(inputCls, 'py-1.5 pl-9')} />
+            </div>
+            <div className="flex gap-2 text-sm">
+              <button className="text-accent" onClick={() => onHidden(new Set())}>
+                Tümünü göster
+              </button>
+              <span className="text-muted">·</span>
+              <button className="text-accent" onClick={() => onHidden(new Set([...hidden, ...plans.map(([k]) => k)]))}>
+                Hiçbirini gösterme
+              </button>
+            </div>
+            {plans.length === 0 ? (
+              <p className="text-sm text-muted">Bu aralıkta plan yok.</p>
+            ) : (
+              <div className="flex max-h-56 flex-col overflow-y-auto">
+                {plans.map(([k, p]) => (
+                  <label key={k} className="flex items-center gap-2 rounded px-1 py-1.5 text-[15px] hover:bg-surface-2">
+                    <input type="checkbox" checked={!hidden.has(k)} onChange={() => toggle(k)} className="h-4 w-4 accent-accent" />
+                    <span className={cx('min-w-0 flex-1 truncate', hidden.has(k) && 'text-muted')}>{p.title}</span>
+                    <span className="text-xs text-muted">{p.count}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Etkinlikler */}
+      <div className="mt-4 flex items-center gap-2">
+        <span className="flex-1 text-sm text-muted">{shown.length ? `${shown.length} etkinlik` : 'Etkinlik yok'}</span>
+        <button onClick={() => onOpenDay(a >= today || a === b ? a : today, true)} className="inline-flex items-center gap-1 text-sm font-medium text-accent">
+          <Plus className="h-4 w-4" /> Etkinlik ekle
+        </button>
+      </div>
+      <div className="mt-2 flex flex-col gap-3">
+        {groups.map(([date, list]) => (
+          <div key={date} className="flex flex-col gap-1.5">
+            <div className="flex items-baseline gap-2 px-1 text-sm font-semibold">
+              {fmt(date, 'd MMMM EEEE')}
+              {/* Sadece "Bugün/Yarın/Dün" gibi kısa ifade; tarih zaten başlıkta */}
+              {!/\d/.test(relativeDay(date, today)) && <span className="text-xs font-normal text-accent">{relativeDay(date, today)}</span>}
+            </div>
+            {list.map((ev) => (
+              <button
+                key={ev.id}
+                onClick={() => onOpenDay(date)}
+                className="flex flex-col gap-0.5 rounded-lg border-l-[3px] bg-surface px-3 py-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:bg-surface-2"
+                style={{ borderLeftColor: PLAN_COLOR }}
+              >
+                <span className="break-words">
+                  {ev.time && <span className="mr-1.5 font-medium" style={{ color: PLAN_COLOR }}>{ev.time}</span>}
+                  {ev.title}
+                </span>
+                {ev.location && (
+                  <span className="flex items-center gap-1 text-sm text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    {ev.location}
+                  </span>
+                )}
+                {ev.note && <span className="line-clamp-2 whitespace-pre-wrap text-sm text-muted">{ev.note}</span>}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /** Bir günün etkinlikleri: listele, ekle, düzenle, sil. */
-function DayEvents({ date, events, onClose }: { date: string; events: PlanEvent[]; onClose: () => void }) {
-  const [editing, setEditing] = useState<string | 'new' | null>(events.length ? null : 'new')
+function DayEvents({ date, events, startNew, onClose }: { date: string; events: PlanEvent[]; startNew?: boolean; onClose: () => void }) {
+  const [editing, setEditing] = useState<string | 'new' | null>(startNew || !events.length ? 'new' : null)
 
   return (
     <Modal title={fmt(date, 'd MMMM EEEE')} onClose={onClose}>
