@@ -97,7 +97,7 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-8">
           <div className="flex min-w-0 basis-full items-center gap-2 text-[#1f8f98] sm:flex-1 sm:basis-auto">
             <CalendarDays className="h-6 w-6" />
-            <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">Takvim</h1>
+            <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">Hatırlatma ve Görev Takvimi</h1>
           </div>
           <div className="flex min-w-0 flex-1 items-center sm:flex-none">
             <IconButton onClick={() => move(-1)} aria-label={view === 'ay' ? 'Önceki ay' : 'Önceki hafta'}>

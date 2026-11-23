@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Bell, CalendarCheck, CalendarDays, CircleCheckBig, Home, List as ListIcon, PanelLeftClose, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
+import { Bell, CalendarCheck, CalendarDays, CalendarRange, Wallet, CircleCheckBig, Home, List as ListIcon, PanelLeftClose, Plus, Search, Settings, Star, Sun, WifiOff } from 'lucide-react'
 import { createList, useStore } from '../lib/store'
 import { useCounts, useLists } from '../lib/selectors'
 import { LIST_COLORS } from '../lib/types'
@@ -72,9 +72,11 @@ export default function NavContent({ mobile }: { mobile?: boolean }) {
       <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-4">
         {row('/gunum', <Sun className="h-5 w-5" />, 'Günüm', counts.gunum, '#d9781f')}
         {row('/onemli', <Star className="h-5 w-5" />, 'Önemli', counts.onemli, '#c9408a')}
-        {row('/planlanan', <CalendarCheck className="h-5 w-5" />, 'Planlanan', counts.planlanan, '#2f9a5b')}
+        {row('/planlanan', <CalendarCheck className="h-5 w-5" />, 'Planlanan görevler', counts.planlanan, '#2f9a5b')}
         {row('/tamamlanan', <CircleCheckBig className="h-5 w-5" />, 'Tamamlananlar', undefined, '#6b7280')}
-        {!mobile && row('/takvim', <CalendarDays className="h-5 w-5" />, 'Takvim', undefined, '#1f8f98')}
+        {!mobile && row('/takvim', <CalendarDays className="h-5 w-5" />, 'Hatırlatma ve Görev Takvimi', undefined, '#1f8f98')}
+        {row('/harcama-plani', <Wallet className="h-5 w-5" />, 'Harcama Planı', undefined, '#0f8f6a')}
+        {row('/aylik-plan', <CalendarRange className="h-5 w-5" />, 'Aylık Plan', undefined, '#7c4dcc')}
 
         <div className="mx-3 my-2 border-t border-line" />
 

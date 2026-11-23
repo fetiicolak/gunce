@@ -9,14 +9,29 @@ import { del as idbDel, get as idbGet, set as idbSet } from 'idb-keyval'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { nextOccurrence, weekday, zonedParts } from '@shared/schedule.ts'
 import { supabase } from './supabase'
-import type { Item, List, Settings } from './types'
+import { missingRecurring, monthOf } from '@shared/plans.ts'
+import type { Expense, Item, List, PlanEvent, Settings } from './types'
 
-type Table = 'lists' | 'items' | 'settings'
+type Table = 'lists' | 'items' | 'expenses' | 'events' | 'settings'
+/** Kimliği `id` olan, kayıtları sözlükte tutulan tablolar */
+type RowTable = Exclude<Table, 'settings'>
+const ROW_TABLES: RowTable[] = ['lists', 'items', 'expenses', 'events']
+type RowOf<T extends Table> = T extends 'settings'
+  ? Settings
+  : T extends 'lists'
+    ? List
+    : T extends 'items'
+      ? Item
+      : T extends 'expenses'
+        ? Expense
+        : PlanEvent
 
 interface Persisted {
   userId: string | null
   lists: Record<string, List>
   items: Record<string, Item>
+  expenses: Record<string, Expense>
+  events: Record<string, PlanEvent>
   settings: Settings | null
   /** "tablo:id" -> sürüm; gönderilmeyi bekleyen satırlar */
   outbox: Record<string, number>
@@ -31,7 +46,7 @@ interface State extends Persisted {
 }
 
 const STORAGE_KEY = 'gunce-state'
-const empty: Persisted = { userId: null, lists: {}, items: {}, settings: null, outbox: {}, cursor: null }
+const empty: Persisted = { userId: null, lists: {}, items: {}, expenses: {}, events: {}, settings: null, outbox: {}, cursor: null }
 
 export const useStore = create<State>(() => ({
   ...empty,
@@ -78,20 +93,20 @@ let persistTimer: ReturnType<typeof setTimeout> | undefined
 function schedulePersist() {
   clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
-    const { userId, lists, items, settings, outbox, cursor } = get()
-    if (userId) idbSet(STORAGE_KEY, { userId, lists, items, settings, outbox, cursor }).catch(() => {})
+    const { userId, lists, items, expenses, events, settings, outbox, cursor } = get()
+    if (userId) idbSet(STORAGE_KEY, { userId, lists, items, expenses, events, settings, outbox, cursor }).catch(() => {})
   }, 300)
 }
 
 // ---------- Yerel yazma ----------
 
-function put<T extends Table>(table: T, row: T extends 'settings' ? Settings : T extends 'lists' ? List : Item) {
-  const id = table === 'settings' ? (row as Settings).user_id : (row as List | Item).id
+function put<T extends Table>(table: T, row: RowOf<T>) {
+  const id = table === 'settings' ? (row as Settings).user_id : (row as { id: string }).id
   const key = `${table}:${id}`
   set((s) => ({
     ...(table === 'settings'
       ? { settings: row as Settings }
-      : { [table]: { ...(s[table as 'lists' | 'items'] as Record<string, unknown>), [id]: row } }),
+      : { [table]: { ...(s[table as RowTable] as Record<string, unknown>), [id]: row } }),
     outbox: { ...s.outbox, [key]: (s.outbox[key] ?? 0) + 1 },
   }))
   schedulePersist()
@@ -118,7 +133,7 @@ export async function flush() {
   flushing = true
   set({ syncing: true })
   try {
-    for (const table of ['settings', 'lists', 'items'] as Table[]) {
+    for (const table of ['settings', ...ROW_TABLES] as Table[]) {
       const tableKeys = keys.filter((k) => k.startsWith(table + ':'))
       if (!tableKeys.length) continue
       const versions = Object.fromEntries(tableKeys.map((k) => [k, outbox[k]]))
@@ -126,7 +141,7 @@ export async function flush() {
       const rows = tableKeys
         .map((k) => {
           const id = k.slice(table.length + 1)
-          return table === 'settings' ? state.settings : state[table as 'lists' | 'items'][id]
+          return table === 'settings' ? state.settings : state[table as RowTable][id]
         })
         .filter(Boolean)
       if (rows.length) {
@@ -167,7 +182,7 @@ function mergeRow(table: Table, row: Record<string, unknown>, sentVersions?: Rec
   if (pending !== undefined && (!sentVersions || sentVersions[key] !== pending)) return
   set((s) => {
     if (table === 'settings') return { settings: row as unknown as Settings }
-    const current = { ...(s[table as 'lists' | 'items'] as Record<string, unknown>) }
+    const current = { ...(s[table as RowTable] as Record<string, unknown>) }
     if (row.deleted_at) delete current[id]
     else current[id] = normalize(table, row)
     const updated = row.updated_at as string
@@ -185,6 +200,8 @@ function normalize(table: Table, row: Record<string, unknown>) {
       reminders: row.reminders ?? [],
     }
   }
+  if (table === 'expenses') return { ...row, amount: Number(row.amount ?? 0) }
+  if (table === 'events') return { ...row, time: row.time ? (row.time as string).slice(0, 5) : null }
   return row
 }
 
@@ -201,7 +218,7 @@ export async function pull() {
     let cursor = get().cursor
     if (cursor && Date.now() - new Date(cursor).getTime() > 25 * 86_400_000) cursor = null
     const since = cursor ? new Date(new Date(cursor).getTime() - 120_000).toISOString() : null
-    for (const table of ['lists', 'items'] as const) {
+    for (const table of ROW_TABLES) {
       const seen = new Set<string>()
       let from = 0
       for (;;) {
@@ -249,7 +266,8 @@ let listenersBound = false
 export async function initStore(userId: string, opts: { localOnly?: boolean } = {}) {
   localOnly = !!opts.localOnly
   const saved = (await idbGet(STORAGE_KEY).catch(() => null)) as Persisted | null
-  if (saved && saved.userId === userId) set({ ...saved, ready: true })
+  // Eski kayıtlarda yeni tablolar yok; boş sözlükle tamamla
+  if (saved && saved.userId === userId) set({ ...empty, ...saved, ready: true })
   else set({ ...empty, userId, ready: true })
 
   await pull()
@@ -259,7 +277,7 @@ export async function initStore(userId: string, opts: { localOnly?: boolean } = 
 
   channel?.unsubscribe()
   channel = supabase.channel('gunce-sync')
-  for (const table of ['lists', 'items', 'settings'] as const) {
+  for (const table of [...ROW_TABLES, 'settings'] as const) {
     channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
@@ -453,4 +471,89 @@ export function toggleComplete(id: string) {
 
 export function updateSettings(patch: Partial<Settings>) {
   put('settings', { ...getSettings(), ...patch })
+}
+
+// ---------- Harcama Planı ----------
+
+export type NewExpense = Pick<Expense, 'title' | 'amount' | 'due_date'> & Partial<Expense>
+
+export function createExpense(input: NewExpense): Expense {
+  const { userId } = get()
+  const now = new Date().toISOString()
+  const id = input.id ?? uuid()
+  const row: Expense = {
+    id,
+    user_id: userId!,
+    series_id: id,
+    recurring: false,
+    paid_on: null,
+    note: '',
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+    ...input,
+  }
+  put('expenses', row)
+  return row
+}
+
+export function updateExpense(id: string, patch: Partial<Expense>) {
+  const row = get().expenses[id]
+  if (row) put('expenses', { ...row, ...patch })
+}
+
+/** Harcamayı siler. Tekrarlıysa seri bu aydan itibaren durur (önceki aylardaki "her ay tekrarla" kapanır),
+ *  yoksa silinen ay bir sonraki açılışta yeniden üretilirdi. */
+export function deleteExpense(id: string) {
+  const { expenses } = get()
+  const row = expenses[id]
+  if (!row) return
+  for (const r of Object.values(expenses)) {
+    if (r.series_id === row.series_id && r.id !== id && r.due_date < row.due_date && r.recurring && !r.deleted_at) {
+      put('expenses', { ...r, recurring: false })
+    }
+  }
+  put('expenses', { ...row, recurring: false, deleted_at: new Date().toISOString() })
+}
+
+/** "Her ay tekrarla" serilerinin bu aydaki kopyalarını oluşturur (zaten varsa dokunmaz). */
+export function ensureRecurringExpenses(month: string) {
+  const rows = Object.values(get().expenses)
+  for (const row of missingRecurring(rows, month)) {
+    const now = new Date().toISOString()
+    put('expenses', { ...row, created_at: now, updated_at: now })
+  }
+}
+
+export const currentMonth = () => monthOf(todayStr())
+
+// ---------- Aylık Plan ----------
+
+export type NewEvent = Pick<PlanEvent, 'title' | 'date'> & Partial<PlanEvent>
+
+export function createEvent(input: NewEvent): PlanEvent {
+  const { userId } = get()
+  const now = new Date().toISOString()
+  const row: PlanEvent = {
+    id: uuid(),
+    user_id: userId!,
+    time: null,
+    note: '',
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+    ...input,
+  }
+  put('events', row)
+  return row
+}
+
+export function updateEvent(id: string, patch: Partial<PlanEvent>) {
+  const row = get().events[id]
+  if (row) put('events', { ...row, ...patch })
+}
+
+export function deleteEvent(id: string) {
+  const row = get().events[id]
+  if (row) put('events', { ...row, deleted_at: new Date().toISOString() })
 }

@@ -14,6 +14,15 @@ import {
   type ScheduleSettings,
   type SchedulableItem,
 } from '../_shared/schedule.ts'
+import {
+  eventFireTimes,
+  expenseFireTimes,
+  missingRecurring,
+  monthOf,
+  type EventRow,
+  type ExpenseRow,
+  type PlanFire,
+} from '../_shared/plans.ts'
 
 const WINDOW_MS = 6 * 60_000
 const DEFAULT_SETTINGS: ScheduleSettings = { timezone: 'Europe/Istanbul', default_time: '09:00' }
@@ -91,18 +100,14 @@ async function run(now: number) {
       if (ft.at <= now && ft.at > now - WINDOW_MS) due.push({ item, ft, settings })
     }
   }
-  if (!due.length) return { rolled, sent: 0 }
+  const planDue = await collectPlanDue(now, settingsByUser)
+  if (!due.length && !planDue.length) return { rolled, sent: 0 }
 
   // Bildirimleri göndermeden önce günlüğe yazarak sahiplen; zaten varsa atla (tekrar gönderimi önler)
-  const { data: claimed, error } = await supabase
-    .from('notification_log')
-    .upsert(
-      due.map((d) => ({ item_id: d.item.id, fire_key: d.ft.key })),
-      { onConflict: 'item_id,fire_key', ignoreDuplicates: true },
-    )
-    .select('item_id,fire_key')
-  if (error) throw error
-  const claimedKeys = new Set((claimed ?? []).map((c) => `${c.item_id}#${c.fire_key}`))
+  const claimedKeys = await claim([
+    ...due.map((d) => ({ item_id: d.item.id, fire_key: d.ft.key })),
+    ...planDue.map((p) => ({ item_id: p.id, fire_key: p.key })),
+  ])
   const toSend = due.filter((d) => claimedKeys.has(`${d.item.id}#${d.ft.key}`))
 
   const byUser = new Map<string, typeof toSend>()
@@ -122,7 +127,84 @@ async function run(now: number) {
     const userSubs = ((subs ?? []) as Sub[]).filter((s) => s.user_id === userId)
     for (const p of payloads) sent += await sendToAll(userSubs, p)
   }
-  return { rolled, sent, due: due.length }
+  // Harcama ve etkinlik bildirimleri tek tek gider
+  for (const p of planDue) {
+    if (!claimedKeys.has(`${p.id}#${p.key}`)) continue
+    const userSubs = ((subs ?? []) as Sub[]).filter((sub) => sub.user_id === p.user_id)
+    sent += await sendToAll(userSubs, p.payload)
+  }
+  return { rolled, sent, due: due.length, plan: planDue.length }
+}
+
+async function claim(rows: { item_id: string; fire_key: string }[]): Promise<Set<string>> {
+  if (!rows.length) return new Set()
+  const { data, error } = await supabase
+    .from('notification_log')
+    .upsert(rows, { onConflict: 'item_id,fire_key', ignoreDuplicates: true })
+    .select('item_id,fire_key')
+  if (error) throw error
+  return new Set(((data ?? []) as { item_id: string; fire_key: string }[]).map((c) => `${c.item_id}#${c.fire_key}`))
+}
+
+const tl = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 2 })
+
+/** Zamanı gelen Harcama Planı ve Aylık Plan bildirimleri. "Her ay tekrarla" serilerinin bu aydaki
+ *  kopyası henüz oluşturulmamışsa (uygulama açılmadıysa) da bildirilir. */
+async function collectPlanDue(now: number, settingsByUser: Map<string, ScheduleSettings>) {
+  const from = new Date(now - 3 * 86_400_000).toISOString().slice(0, 10)
+  const to = new Date(now + 3 * 86_400_000).toISOString().slice(0, 10)
+  const [{ data: expenses, error: e1 }, { data: events, error: e2 }] = await Promise.all([
+    supabase.from('expenses').select('id,user_id,series_id,title,amount,due_date,recurring,paid_on,note,deleted_at').is('deleted_at', null),
+    supabase.from('events').select('id,user_id,date,title,time,note,deleted_at').is('deleted_at', null).gte('date', from).lte('date', to),
+  ])
+  if (e1 || e2) throw e1 ?? e2
+  const out: { id: string; user_id: string; key: string; payload: Payload }[] = []
+  const inWindow = (f: PlanFire) => f.at <= now && f.at > now - WINDOW_MS
+
+  const byUser = new Map<string, ExpenseRow[]>()
+  for (const e of (expenses ?? []) as ExpenseRow[]) {
+    const list = byUser.get(e.user_id) ?? []
+    list.push({ ...e, amount: Number(e.amount) })
+    byUser.set(e.user_id, list)
+  }
+  for (const [userId, rows] of byUser) {
+    const s = settingsByUser.get(userId) ?? DEFAULT_SETTINGS
+    const month = monthOf(zonedParts(now, s.timezone).date)
+    const candidates = [...rows.filter((r) => monthOf(r.due_date) === month), ...missingRecurring(rows, month)]
+    for (const e of candidates) {
+      for (const f of expenseFireTimes(e, s)) {
+        if (!inWindow(f)) continue
+        out.push({
+          id: e.id,
+          user_id: userId,
+          key: f.key,
+          payload: { title: `💸 ${e.title}`, body: `Bugün ödenecek · ${tl.format(e.amount)}`, url: '#/harcama-plani', tag: `exp-${e.id}` },
+        })
+      }
+    }
+  }
+
+  for (const ev of (events ?? []) as EventRow[]) {
+    const s = settingsByUser.get(ev.user_id) ?? DEFAULT_SETTINGS
+    for (const f of eventFireTimes(ev, s)) {
+      if (!inWindow(f)) continue
+      const when = f.kind === 'event-eve' ? 'Yarın' : 'Bugün'
+      const time = ev.time ? ` · ${ev.time.slice(0, 5)}` : ''
+      const note = ev.note?.split('\n')[0]?.trim()
+      out.push({
+        id: ev.id,
+        user_id: ev.user_id,
+        key: f.key,
+        payload: {
+          title: `📅 ${ev.title}`,
+          body: `${when}${time}${note ? `\n${note}` : ''}`,
+          url: `#/aylik-plan?ay=${monthOf(ev.date)}`,
+          tag: `ev-${ev.id}-${f.kind}`,
+        },
+      })
+    }
+  }
+  return out
 }
 
 /** Tekrarlayan "hatırlatma" türündeki öğeleri, zamanı geçince bir sonraki tekrara taşır. */

@@ -10,7 +10,7 @@ const META: Record<SmartKey, { title: string; color: string; icon: React.ReactNo
   gunum: { title: 'Günüm', color: '#d9781f', icon: <Sun className="h-6 w-6" />, empty: 'Bugün için bir şey yok. Güzel bir gün!' },
   onemli: { title: 'Önemli', color: '#c9408a', icon: <Star className="h-6 w-6" />, empty: 'Yıldızladığın görevler burada görünür.' },
   planlanan: {
-    title: 'Planlanan',
+    title: 'Planlanan görevler',
     color: '#2f9a5b',
     icon: <CalendarCheck className="h-6 w-6" />,
     empty: 'Tarihi olan görevler burada görünür.',

@@ -13,6 +13,8 @@ import DayPage from '../pages/DayPage'
 import SearchPage from '../pages/SearchPage'
 import SettingsPage from '../pages/SettingsPage'
 import CompletedPage from '../pages/CompletedPage'
+import ExpensesPage from '../pages/ExpensesPage'
+import MonthPlanPage from '../pages/MonthPlanPage'
 
 export default function Shell() {
   const isDesktop = useIsDesktop()
@@ -64,6 +66,8 @@ export default function Shell() {
           <Route path="/tamamlanan" element={<CompletedPage />} />
           <Route path="/liste/:id" element={<ListPage />} />
           <Route path="/takvim" element={<CalendarPage />} />
+          <Route path="/harcama-plani" element={<ExpensesPage />} />
+          <Route path="/aylik-plan" element={<MonthPlanPage />} />
           <Route path="/gun/:date" element={<DayPage />} />
           <Route path="/oge/:id" element={<ItemRedirect />} />
           <Route path="/ara" element={<SearchPage />} />

@@ -1,4 +1,5 @@
 import type { Recurrence, Reminder } from '@shared/schedule.ts'
+import type { EventRow, ExpenseRow } from '@shared/plans.ts'
 
 export type { Recurrence, Reminder }
 
@@ -41,6 +42,18 @@ export interface Item {
   created_at: string
   updated_at: string
   deleted_at: string | null
+}
+
+/** Harcama Planı satırı (bir ayın bir harcaması). */
+export interface Expense extends ExpenseRow {
+  created_at: string
+  updated_at: string
+}
+
+/** Aylık Plan etkinliği. */
+export interface PlanEvent extends EventRow {
+  created_at: string
+  updated_at: string
 }
 
 export interface Settings {
