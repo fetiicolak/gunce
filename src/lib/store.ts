@@ -201,7 +201,7 @@ function normalize(table: Table, row: Record<string, unknown>) {
     }
   }
   if (table === 'expenses') return { ...row, amount: Number(row.amount ?? 0) }
-  if (table === 'events') return { ...row, time: row.time ? (row.time as string).slice(0, 5) : null }
+  if (table === 'events') return { ...row, time: row.time ? (row.time as string).slice(0, 5) : null, location: row.location ?? '' }
   return row
 }
 
@@ -538,6 +538,7 @@ export function createEvent(input: NewEvent): PlanEvent {
     id: uuid(),
     user_id: userId!,
     time: null,
+    location: '',
     note: '',
     created_at: now,
     updated_at: now,

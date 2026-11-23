@@ -22,6 +22,8 @@ export interface EventRow {
   date: string
   title: string
   time: string | null
+  /** İsteğe bağlı mekan; boşsa '' */
+  location: string
   note: string
   deleted_at: string | null
 }

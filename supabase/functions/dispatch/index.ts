@@ -155,7 +155,7 @@ async function collectPlanDue(now: number, settingsByUser: Map<string, ScheduleS
   const to = new Date(now + 3 * 86_400_000).toISOString().slice(0, 10)
   const [{ data: expenses, error: e1 }, { data: events, error: e2 }] = await Promise.all([
     supabase.from('expenses').select('id,user_id,series_id,title,amount,due_date,recurring,paid_on,note,deleted_at').is('deleted_at', null),
-    supabase.from('events').select('id,user_id,date,title,time,note,deleted_at').is('deleted_at', null).gte('date', from).lte('date', to),
+    supabase.from('events').select('id,user_id,date,title,time,location,note,deleted_at').is('deleted_at', null).gte('date', from).lte('date', to),
   ])
   if (e1 || e2) throw e1 ?? e2
   const out: { id: string; user_id: string; key: string; payload: Payload }[] = []
@@ -190,6 +190,7 @@ async function collectPlanDue(now: number, settingsByUser: Map<string, ScheduleS
       if (!inWindow(f)) continue
       const when = f.kind === 'event-eve' ? 'Yarın' : 'Bugün'
       const time = ev.time ? ` · ${ev.time.slice(0, 5)}` : ''
+      const place = ev.location?.trim() ? ` · 📍 ${ev.location.trim()}` : ''
       const note = ev.note?.split('\n')[0]?.trim()
       out.push({
         id: ev.id,
@@ -197,7 +198,7 @@ async function collectPlanDue(now: number, settingsByUser: Map<string, ScheduleS
         key: f.key,
         payload: {
           title: `📅 ${ev.title}`,
-          body: `${when}${time}${note ? `\n${note}` : ''}`,
+          body: `${when}${time}${place}${note ?`\n${note}` : ''}`,
           url: `#/aylik-plan?ay=${monthOf(ev.date)}`,
           tag: `ev-${ev.id}-${f.kind}`,
         },

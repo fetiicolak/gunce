@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarRange, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CalendarRange, ChevronLeft, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { addDays } from '@shared/schedule.ts'
 import { monthOf } from '@shared/plans.ts'
 import { askConfirm } from '../components/ConfirmDialog'
@@ -116,7 +116,7 @@ export default function MonthPlanPage() {
                       key={ev.id}
                       className="truncate rounded px-1 py-px text-[10px] leading-tight md:text-xs"
                       style={{ background: PLAN_COLOR + '1c', color: PLAN_COLOR }}
-                      title={ev.title}
+                      title={ev.location ? `${ev.title} · ${ev.location}` : ev.title}
                     >
                       {isDesktop && ev.time && <span className="opacity-70">{ev.time} </span>}
                       {ev.title}
@@ -152,6 +152,12 @@ function DayEvents({ date, events, onClose }: { date: string; events: PlanEvent[
                   {ev.time && <span className="mr-1.5 font-medium" style={{ color: PLAN_COLOR }}>{ev.time}</span>}
                   {ev.title}
                 </div>
+                {ev.location && (
+                  <div className="mt-0.5 flex items-center gap-1 text-sm text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    <span className="break-words">{ev.location}</span>
+                  </div>
+                )}
                 {ev.note && <div className="mt-0.5 whitespace-pre-wrap text-sm text-muted">{ev.note}</div>}
               </div>
               <IconButton onClick={() => setEditing(ev.id)} aria-label="Düzenle" className="h-8 w-8">
@@ -186,6 +192,7 @@ function EventForm({ date, event, onDone }: { date: string; event?: PlanEvent; o
   const [title, setTitle] = useState(event?.title ?? '')
   const [time, setTime] = useState(event?.time ?? '')
   const [day, setDay] = useState(event?.date ?? date)
+  const [location, setLocation] = useState(event?.location ?? '')
   const [note, setNote] = useState(event?.note ?? '')
 
   return (
@@ -194,7 +201,7 @@ function EventForm({ date, event, onDone }: { date: string; event?: PlanEvent; o
       onSubmit={(e) => {
         e.preventDefault()
         if (!title.trim()) return
-        const data = { title: title.trim(), time: time || null, date: day, note }
+        const data = { title: title.trim(), time: time || null, date: day, location: location.trim(), note }
         if (event) updateEvent(event.id, data)
         else createEvent(data)
         onDone()
@@ -208,6 +215,10 @@ function EventForm({ date, event, onDone }: { date: string; event?: PlanEvent; o
         <Field label="Gün">
           <input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className={inputCls} />
         </Field>
+      </div>
+      <div className="relative">
+        <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Mekan (isteğe bağlı)" className={cx(inputCls, 'pl-9')} />
       </div>
       <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Not" className={cx(inputCls, 'resize-none')} />
       <div className="flex justify-end gap-2">
